@@ -36,6 +36,7 @@ void glSurfaceCircle(const float3& center, float radius, const SColor& col, uint
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	const float4 fColor = col;
+	if (fColor.a == 0.0f) return;
 
 	auto& rb = RenderBuffer::GetTypedRenderBuffer<VA_TYPE_0>();
 	rb.AssertSubmission();
@@ -147,6 +148,7 @@ void glBallisticCircle(const CWeapon* weapon, const WeaponDef* weaponDef, const 
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	const float4 fColor = color;
+	if (fColor.a == 0.0f) return;
 
 	auto& rb = RenderBuffer::GetTypedRenderBuffer<VA_TYPE_0>();
 	rb.AssertSubmission();
