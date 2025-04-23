@@ -9010,7 +9010,7 @@ int LuaSyncedRead::GetRadarErrorParams(lua_State* L)
 int LuaSyncedRead::IsFeatureVisible(lua_State* L)
 {
 	const CFeature* feature = ParseFeature(L, __func__, 1);
-	lua_pushnumber(L, feature != nullptr && LuaUtils::IsFeatureVisible(L, feature));
+	lua_pushboolean(L, feature != nullptr && LuaUtils::IsFeatureVisible(L, feature));
 	return 1;
 }
 
