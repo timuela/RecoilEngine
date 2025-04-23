@@ -6,7 +6,7 @@ Visit the [Official Website](https://beyond-all-reason.github.io/RecoilEngine/)
 
     git clone https://github.com/beyond-all-reason/RecoilEngine --recursive
 
-Recoil is a fork and continuation of an RTS [engine](https://github.com/spring/spring) version 105.0
+Recoil is a fork and continuation of an RTS [engine](https://github.com/spring/RecoilEngine) version 105.0
 
 Visit our [Discord](https://discord.gg/GUpRg6Wz3e) for help, suggestions, bugs, community forum and everything Recoil related.
 
