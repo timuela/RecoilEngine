@@ -386,6 +386,8 @@ bool LuaSyncedRead::PushEntries(lua_State* L)
 	REGISTER_LUA_CFUNC(TraceRayGroundInDirection);
 	REGISTER_LUA_CFUNC(TraceRayGroundBetweenPositions);
 
+	REGISTER_LUA_CFUNC(IsFeatureVisible);
+
 	REGISTER_LUA_CFUNC(GetRadarErrorParams);
 
 	if (!LuaMetalMap::PushReadEntries(L))
@@ -8997,6 +8999,19 @@ int LuaSyncedRead::GetRadarErrorParams(lua_State* L)
 	lua_pushnumber(L, losHandler->GetBaseRadarErrorSize());
 	lua_pushnumber(L, losHandler->GetBaseRadarErrorMult());
 	return 3;
+}
+
+/***
+ *
+ * @function Spring.IsFeatureVisible
+ * @param featureID integer
+ * @return number?
+ */
+int LuaSyncedRead::IsFeatureVisible(lua_State* L)
+{
+	const CFeature* feature = ParseFeature(L, __func__, 1);
+	lua_pushnumber(L, feature != nullptr && LuaUtils::IsFeatureVisible(L, feature));
+	return 1;
 }
 
 
