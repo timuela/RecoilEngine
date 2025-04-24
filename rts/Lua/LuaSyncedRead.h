@@ -223,6 +223,8 @@ class LuaSyncedRead {
 		static int GetFeatureRulesParam(lua_State* L);
 		static int GetFeatureRulesParams(lua_State* L);
 
+		static int IsFeatureVisible(lua_State* L);
+
 		static int GetProjectilePosition(lua_State* L);
 		static int GetProjectileDirection(lua_State* L);
 		static int GetProjectileVelocity(lua_State* L);
@@ -298,8 +300,6 @@ class LuaSyncedRead {
 		static int TraceRayFeatures(lua_State* L);   //TODO: not implemented
 		static int TraceRayGroundBetweenPositions(lua_State* L);
 		static int TraceRayGroundInDirection(lua_State* L);
-
-		static int IsFeatureVisible(lua_State* L);
 };
 
 #endif /* LUA_SYNCED_READ_H */
