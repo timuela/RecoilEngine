@@ -1748,8 +1748,7 @@ void CGame::SimFrame() {
 
 	// note: starts at -1, first actual frame is 0
 	gs->frameNum += 1;
-	if (gs->frameNum == 1514)
-		LOG("");
+
 #ifdef SYNC_HISTORY
 	CSyncChecker::NewGameFrame();
 #endif

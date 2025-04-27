@@ -3101,7 +3101,7 @@ void CGroundMoveType::OutputLog(const std::string& floats, const std::source_loc
 
 	static spring::mutex loggingMut;
 	const auto lock = std::scoped_lock(loggingMut);
-	LOG("SyncLog[fn=%d, tid=%d], %s[%u], values %s", gs->frameNum, tid, std::string(fn).c_str(), static_cast<uint32_t>(location.line()), floats.c_str());
+	LOG_S("SyncLog", "[tid=%d] %s:%u: values: %s", tid, std::string(fn).c_str(), static_cast<uint32_t>(location.line()), floats.c_str());
 }
 
 
