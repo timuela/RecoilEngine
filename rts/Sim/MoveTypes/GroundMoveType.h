@@ -6,6 +6,7 @@
 #include <array>
 #include <tuple>
 #include <sstream>
+#include <source_location>
 
 #include "MoveType.h"
 #include "Sim/Path/IPathController.h"
@@ -94,7 +95,7 @@ public:
 
 	void TriggerSkipWayPoint() {
 		earlyCurrWayPoint.y = -2.0f;
-		CondLog("TriggerSkipWayPoint()", earlyCurrWayPoint);
+		SyncLog(std::forward_as_tuple(earlyCurrWayPoint));
 	}
 	void TriggerCallArrived() {
 		atEndOfPath = true;
@@ -134,14 +135,14 @@ public:
 		// Synced vars trigger a checksum update on change, which is expensive so we should check
 		// that there has been a change before triggering an update to the checksum.
 		if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) {
-			CondLog("if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) (before)", currWayPoint, earlyCurrWayPoint);
+			SyncLog(std::forward_as_tuple(currWayPoint, earlyCurrWayPoint));
 			currWayPoint = earlyCurrWayPoint;
-			CondLog("if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) (after)", currWayPoint, earlyCurrWayPoint);
+			SyncLog(std::forward_as_tuple(currWayPoint, earlyCurrWayPoint));
 		}
 		if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) {
-			CondLog("if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) (before)", nextWayPoint, earlyNextWayPoint);
+			SyncLog(std::forward_as_tuple(nextWayPoint, earlyNextWayPoint));
 			nextWayPoint = earlyNextWayPoint;
-			CondLog("if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) (after)", nextWayPoint, earlyNextWayPoint);
+			SyncLog(std::forward_as_tuple(nextWayPoint, earlyNextWayPoint));
 		}
 	}
 	unsigned int GetPathId() { return pathID; }
@@ -208,16 +209,15 @@ private:
         const MoveDef *colliderMD,
         int curThread);
 
-	bool TriggerLog() const;
-	void OutputLog(const char* place, const std::string& floats) const;
+	void OutputLog(const std::string& floats, const std::source_location& location) const;
 
 	template<typename ...Float3Like>
-	void CondLog(const char* place, const Float3Like& ... f3) const {
-		if (TriggerLog()) {
-			std::ostringstream ss;
+	void SyncLog(const std::tuple<Float3Like& ...>& f3tuple, std::source_location location = std::source_location::current()) const {
+		std::ostringstream ss;
+		std::apply([&ss](auto&&... f3) {
 			((ss << static_cast<float3>(f3).str() << ';'), ...);
-			OutputLog(place, ss.str());
-		}
+		}, f3tuple);
+		OutputLog(ss.str(), location);
 	}
 public:
     void SetMainHeading();
