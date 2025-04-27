@@ -895,8 +895,11 @@ void CGroundMoveType::StartMovingRaw(const float3 moveGoalPos, float moveGoalRad
 	MoveTypes::CheckCollisionQuery collisionQuery(owner->moveDef, moveGoalPos);
 	extraRadius = deltaRadius * (1 - owner->moveDef->TestMoveSquare(collisionQuery, moveGoalPos, ZeroVector, true, true));
 
+	CondLog("extraRadius = deltaRadius", earlyCurrWayPoint, currWayPoint, goalPos);
 	earlyCurrWayPoint = currWayPoint = goalPos;
+	CondLog("earlyCurrWayPoint = currWayPoint = goalPos", earlyCurrWayPoint, currWayPoint, goalPos);
 	earlyNextWayPoint = nextWayPoint = goalPos;
+	CondLog("earlyNextWayPoint = nextWayPoint = goalPos", earlyNextWayPoint, nextWayPoint, goalPos);
 
 	atGoal = (moveGoalPos.SqDistance2D(owner->pos) < Square(goalRadius + extraRadius));
 	atEndOfPath = false;
@@ -994,8 +997,11 @@ void CGroundMoveType::StopMoving(bool callScript, bool hardStop, bool cancelRaw)
 	RECOIL_DETAILED_TRACY_ZONE;
 	LOG_L(L_DEBUG, "[%s] stopping engine for unit %i", __func__, owner->id);
 
-	if (!atGoal)
+	if (!atGoal) {
+		CondLog("!atGoal (before)", earlyCurrWayPoint, goalPos, currWayPoint);
 		earlyCurrWayPoint = (goalPos = (currWayPoint = Here()));
+		CondLog("!atGoal (after)", earlyCurrWayPoint, goalPos, currWayPoint);
+	}
 
 	// this gets called under a variety of conditions (see MobileCAI)
 	// the most common case is a CMD_STOP being issued which means no
@@ -1020,6 +1026,7 @@ void CGroundMoveType::UpdateTraversalPlan() {
 
 	earlyCurrWayPoint = currWayPoint;
 	earlyNextWayPoint = nextWayPoint;
+	CondLog("UpdateTraversalPlan", earlyCurrWayPoint, currWayPoint, earlyNextWayPoint, nextWayPoint);
 
 	// Check whether the new path is ready.
 	if (nextPathId != 0) {
@@ -1031,8 +1038,12 @@ void CGroundMoveType::UpdateTraversalPlan() {
 			// try to redirect onto the new path.
 			if (!useRawMovement) {
 				// switch straight over to the new path
+				CondLog("earlyCurrWayPoint = tempWaypoint; (before)", earlyCurrWayPoint, tempWaypoint);
 				earlyCurrWayPoint = tempWaypoint;
+				CondLog("earlyCurrWayPoint = tempWaypoint; (after)", earlyCurrWayPoint, tempWaypoint);
+
 				earlyNextWayPoint = pathManager->NextWayPoint(owner, nextPathId, 0, earlyCurrWayPoint, std::max(WAYPOINT_RADIUS, currentSpeed * 1.05f), true);
+				CondLog("earlyNextWayPoint = pathManager->NextWayPoint()", earlyNextWayPoint);
 				lastWaypoint = false;
 				wantRepath = false;
 				atEndOfPath = false;
@@ -1073,8 +1084,10 @@ bool CGroundMoveType::FollowPath(int thread)
 	bool wantReverse = false;
 
 	if (WantToStop()) {
+		CondLog("if (WantToStop()) (before)", earlyCurrWayPoint, earlyNextWayPoint);
 		earlyCurrWayPoint.y = -1.0f;
 		earlyNextWayPoint.y = -1.0f;
+		CondLog("if (WantToStop()) (after)", earlyCurrWayPoint, earlyNextWayPoint);
 
 		setHeading = HEADING_CHANGED_STOP;
 		auto& event = Sim::registry.get<ChangeMainHeadingEvent>(owner->entityReference);
@@ -2066,8 +2079,11 @@ unsigned int CGroundMoveType::GetNewPath()
 		atEndOfPath = false;
 		lastWaypoint = false;
 
+		CondLog("earlyCurrWayPoint = currWayPoint = pathManager->NextWayPoint() (before)", earlyCurrWayPoint, currWayPoint, owner->pos);
 		earlyCurrWayPoint = currWayPoint = pathManager->NextWayPoint(owner, newPathID, 0,   owner->pos, std::max(WAYPOINT_RADIUS, currentSpeed * 1.05f), true);
+		CondLog("earlyCurrWayPoint = currWayPoint = pathManager->NextWayPoint() (after)", earlyCurrWayPoint, currWayPoint);
 		earlyNextWayPoint = nextWayPoint = pathManager->NextWayPoint(owner, newPathID, 0, currWayPoint, std::max(WAYPOINT_RADIUS, currentSpeed * 1.05f), true);
+		CondLog("earlyNextWayPoint = nextWayPoint = pathManager->NextWayPoint()", earlyNextWayPoint, nextWayPoint, currWayPoint);
 
 		pathController.SetRealGoalPosition(newPathID, goalPos);
 		pathController.SetTempGoalPosition(newPathID, currWayPoint);
@@ -2280,6 +2296,7 @@ bool CGroundMoveType::CanSetNextWayPoint(int thread) {
 	if (atEndOfPath) {
 		earlyCurrWayPoint = goalPos;
 		earlyNextWayPoint = goalPos;
+		CondLog("if (atEndOfPath)", earlyCurrWayPoint, earlyNextWayPoint, goalPos);
 		return false;
 	}
 
@@ -2306,8 +2323,11 @@ void CGroundMoveType::SetNextWayPoint(int thread)
 
 		int32_t update = 1;
 		while (update-- > 0) {
+			CondLog("while (update-- > 0) (before)", earlyCurrWayPoint, earlyNextWayPoint);
 			earlyCurrWayPoint = earlyNextWayPoint;
+			CondLog("while (update-- > 0) (after)", earlyCurrWayPoint, earlyNextWayPoint);
 			earlyNextWayPoint = pathManager->NextWayPoint(owner, pathID, 0, earlyCurrWayPoint, std::max(WAYPOINT_RADIUS, currentSpeed * 1.05f), true);
+			CondLog("earlyNextWayPoint = pathManager->NextWayPoint()", earlyNextWayPoint, earlyCurrWayPoint);
 			update += (earlyCurrWayPoint.y == (-1.f) && earlyNextWayPoint.y != (-1.f));
 		}
 
@@ -3065,6 +3085,16 @@ void CGroundMoveType::HandleFeatureCollisions(
 	}
 }
 
+bool CGroundMoveType::TriggerLog() const
+{
+	return (owner->id == 23130 && gs->frameNum >= 1500 && gs->frameNum <= 1527);
+}
+
+void CGroundMoveType::OutputLog(const char* place, const std::string& floats) const
+{
+	LOG("CondLog[fn=%d], place %s, values %s", gs->frameNum, place, floats.c_str());
+}
+
 
 
 void CGroundMoveType::LeaveTransport()
@@ -3282,7 +3312,9 @@ bool CGroundMoveType::UpdateDirectControl()
 	float turnSign = 0.0f;
 
 	currWayPoint = owner->frontdir * XZVector * mix(100.0f, -100.0f, wantReverse);
+	CondLog("currWayPoint = owner->frontdir * XZVector", currWayPoint, owner->frontdir);
 	earlyCurrWayPoint = currWayPoint = (owner->pos + currWayPoint).cClampInBounds();
+	CondLog("earlyCurrWayPoint = currWayPoint = (owner->pos + currWayPoint)", earlyCurrWayPoint, currWayPoint, owner->pos, currWayPoint);
 
 	if (unitCon.forward || unitCon.back) {
 		ChangeSpeed((maxSpeed * unitCon.forward) + (maxReverseSpeed * unitCon.back), wantReverse, true);

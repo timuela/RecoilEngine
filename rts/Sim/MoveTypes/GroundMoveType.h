@@ -5,10 +5,12 @@
 
 #include <array>
 #include <tuple>
+#include <sstream>
 
 #include "MoveType.h"
 #include "Sim/Path/IPathController.h"
 #include "System/Sync/SyncedFloat3.h"
+#include "System/Log/ILog.h"
 
 struct UnitDef;
 struct MoveDef;
@@ -92,6 +94,7 @@ public:
 
 	void TriggerSkipWayPoint() {
 		earlyCurrWayPoint.y = -2.0f;
+		CondLog("TriggerSkipWayPoint()", earlyCurrWayPoint);
 	}
 	void TriggerCallArrived() {
 		atEndOfPath = true;
@@ -130,10 +133,16 @@ public:
 	void SyncWaypoints() {
 		// Synced vars trigger a checksum update on change, which is expensive so we should check
 		// that there has been a change before triggering an update to the checksum.
-		if (!currWayPoint.bitExactEquals(earlyCurrWayPoint))
+		if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) {
+			CondLog("if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) (before)", currWayPoint, earlyCurrWayPoint);
 			currWayPoint = earlyCurrWayPoint;
-		if (!nextWayPoint.bitExactEquals(earlyNextWayPoint))
+			CondLog("if (!currWayPoint.bitExactEquals(earlyCurrWayPoint)) (after)", currWayPoint, earlyCurrWayPoint);
+		}
+		if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) {
+			CondLog("if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) (before)", nextWayPoint, earlyNextWayPoint);
 			nextWayPoint = earlyNextWayPoint;
+			CondLog("if (!nextWayPoint.bitExactEquals(earlyNextWayPoint)) (after)", nextWayPoint, earlyNextWayPoint);
+		}
 	}
 	unsigned int GetPathId() { return pathID; }
 
@@ -199,6 +208,17 @@ private:
         const MoveDef *colliderMD,
         int curThread);
 
+	bool TriggerLog() const;
+	void OutputLog(const char* place, const std::string& floats) const;
+
+	template<typename ...Float3Like>
+	void CondLog(const char* place, const Float3Like& ... f3) const {
+		if (TriggerLog()) {
+			std::ostringstream ss;
+			((ss << static_cast<float3>(f3).str() << ';'), ...);
+			OutputLog(place, ss.str());
+		}
+	}
 public:
     void SetMainHeading();
     void ChangeSpeed(float, bool, bool = false);

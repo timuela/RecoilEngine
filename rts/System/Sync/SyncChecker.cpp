@@ -7,6 +7,7 @@
 
 // This cannot be included in the header file (SyncChecker.h) because include conflicts will occur.
 #include "System/Threading/ThreadPool.h"
+#include "System/Log/ILog.h"
 
 
 unsigned CSyncChecker::g_checksum;
@@ -35,6 +36,8 @@ void CSyncChecker::Sync(const void* p, unsigned size)
 	// simple xor is not enough to detect multiple zeroes, e.g.
 	g_checksum = spring::LiteHash(p, size, g_checksum);
 	//LOG("[Sync::Checker] chksum=%u\n", g_checksum);
+	if (g_checksum == 0x75b8dbec)
+		LOG("");
 
 #ifdef SYNC_HISTORY
 	LogHistory();
