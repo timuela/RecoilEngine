@@ -2,6 +2,8 @@
 
 // #undef NDEBUG
 
+#include <format>
+
 #include "GroundMoveType.h"
 #include "MoveDefHandler.h"
 #include "Components/MoveTypesComponents.h"
@@ -3101,7 +3103,7 @@ void CGroundMoveType::OutputLog(const std::string& floats, const std::source_loc
 
 	static spring::mutex loggingMut;
 	const auto lock = std::scoped_lock(loggingMut);
-	LOG_S("SyncLog", "[tid=%d] %s:%u: values: %s", tid, std::string(fn).c_str(), static_cast<uint32_t>(location.line()), floats.c_str());
+	LOG_S("SyncLog", "%s:%u: values: %s <|> [tid=%d][oid=%d][cs=%s]", std::string(fn).c_str(), static_cast<uint32_t>(location.line()), floats.c_str(), tid, owner->id, std::format("{:08x}", CSyncChecker::GetChecksum()).c_str());
 }
 
 
