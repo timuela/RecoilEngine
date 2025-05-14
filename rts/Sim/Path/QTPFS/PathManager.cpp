@@ -1450,10 +1450,8 @@ unsigned int QTPFS::PathManager::RequestPath(
 	// if (object != nullptr && 30809 == object->id)
 	// 	LOG("%s: RequestPath (%d).", __func__, returnPathId);
 
-	if (immediateResult && returnPathId != 0) {
-		// immediateResult calls are expected to resolve immediately.
+	if (immediateResult && returnPathId != 0)
 		returnPathId = ExecuteUnsyncedSearch(returnPathId);
-	}
 
 	return returnPathId;
 }
