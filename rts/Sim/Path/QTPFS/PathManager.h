@@ -62,7 +62,8 @@ namespace QTPFS {
 			float3 sourcePos,
 			float3 targetPos,
 			float radius,
-			bool synced
+			bool synced,
+			bool immediateResult = false
 		) override;
 
 		float3 NextWayPoint(

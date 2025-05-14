@@ -1434,7 +1434,8 @@ unsigned int QTPFS::PathManager::RequestPath(
 	float3 sourcePoint,
 	float3 targetPoint,
 	float radius,
-	bool synced
+	bool synced,
+	bool immediateResult
 ) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	unsigned int returnPathId = 0;
@@ -1449,8 +1450,8 @@ unsigned int QTPFS::PathManager::RequestPath(
 	// if (object != nullptr && 30809 == object->id)
 	// 	LOG("%s: RequestPath (%d).", __func__, returnPathId);
 
-	if (!synced && returnPathId != 0) {
-		// Unsynced calls are expected to resolve immediately.
+	if (immediateResult && returnPathId != 0) {
+		// immediateResult calls are expected to resolve immediately.
 		returnPathId = ExecuteUnsyncedSearch(returnPathId);
 	}
 
