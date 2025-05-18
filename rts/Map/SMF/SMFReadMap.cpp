@@ -752,7 +752,7 @@ void CSMFReadMap::ReloadTextures()
 
 		CBitmap bm;
 		if (bm.Load(texName)) {
-			TextureCreationParams tcp;
+			GL::TextureCreationParams tcp;
 			tcp.texID = *mt.GetIDPtr();
 			tcp.aniso = aniso;
 			tcp.lodBias = lodBias;
