@@ -1280,7 +1280,8 @@ int LuaOpenGL::DrawMiniMap(lua_State* L)
 int LuaOpenGL::BeginText(lua_State* L)
 {
 	CheckDrawingEnabled(L, __func__);
-	font->Begin();
+	auto userDefinedBlending = luaL_optboolean(L, 2, false);
+	font->Begin(userDefinedBlending);
 	return 0;
 }
 
