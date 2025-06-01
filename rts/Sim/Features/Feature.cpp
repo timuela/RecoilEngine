@@ -471,7 +471,7 @@ void CFeature::ForcedMove(const float3& newPos)
 	// remove from managers
 	quadField.RemoveFeature(this);
 
-	preFrameTra = Transform{ CQuaternion::MakeFrom(GetTransformMatrix(true)), pos };
+	wasForceFullyMoved = true;
 
 	UnBlock();
 	Move(newPos - pos, true);
@@ -494,6 +494,8 @@ void CFeature::ForcedSpin(const float3& newDir)
 	// update local direction-vectors
 	CSolidObject::ForcedSpin(newDir);
 	UpdateTransform(pos, true);
+
+	wasForceFullyMoved = true;
 }
 
 void CFeature::ForcedSpin(const float3& newFrontDir, const float3& newRightDir)
@@ -502,6 +504,8 @@ void CFeature::ForcedSpin(const float3& newFrontDir, const float3& newRightDir)
 	// update local direction-vectors
 	CSolidObject::ForcedSpin(newFrontDir, newRightDir);
 	UpdateTransform(pos, true);
+
+	wasForceFullyMoved = true;
 }
 
 
@@ -510,6 +514,8 @@ void CFeature::UpdateTransformAndPhysState()
 	RECOIL_DETAILED_TRACY_ZONE;
 	UpdateDirVectors(!def->upright && IsOnGround(), true, 0.0f);
 	UpdateTransform(pos, true);
+
+	wasForceFullyMoved = true;
 
 	UpdatePhysicalStateBit(CSolidObject::PSTATE_BIT_MOVING, (SetSpeed(speed) != 0.0f));
 	UpdatePhysicalState(0.1f);
@@ -569,7 +575,7 @@ bool CFeature::UpdateVelocity(
 bool CFeature::UpdatePosition()
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	preFrameTra = Transform{ CQuaternion::MakeFrom(GetTransformMatrix(true)), pos };
+	wasForceFullyMoved = true;
 	// const float4 oldSpd = speed;
 
 	if (moveCtrl.enabled) {
@@ -616,6 +622,14 @@ bool CFeature::UpdatePosition()
 	return (moveCtrl.enabled);
 }
 
+void CFeature::PreUpdate()
+{
+	if (!wasForceFullyMoved)
+		return;
+
+	preFrameTra = Transform{ CQuaternion::MakeFrom(GetTransformMatrix(true)), pos };
+	wasForceFullyMoved = false;
+}
 
 bool CFeature::Update()
 {

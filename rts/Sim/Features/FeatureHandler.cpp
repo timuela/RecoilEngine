@@ -187,6 +187,18 @@ CFeature* CFeatureHandler::CreateWreckage(const FeatureLoadParams& cparams)
 
 
 
+void CFeatureHandler::UpdatePreframe()
+{
+	SCOPED_TIMER("Sim::Features::UpdatePreframe");
+
+	for (auto* feature : features) {
+		if (!feature) // sucks, but w/e
+			continue;
+
+		feature->PreUpdate();
+	}
+}
+
 void CFeatureHandler::Update()
 {
 	SCOPED_TIMER("Sim::Features");
