@@ -189,7 +189,7 @@ public:
 		// not for autohosts
 		if (!playerHandler.IsValidPlayer(action.GetPlayerID()))
 			return false;
-		unitLoader->ParseAndStoreGiveUnitsCommand(CSimpleParser::Tokenize(action.GetArgs(), 0), playerHandler.Player(action.GetPlayerID())->team);
+		unitLoader->ParseAndExecuteGiveUnitsCommand(CSimpleParser::Tokenize(action.GetArgs(), 0), playerHandler.Player(action.GetPlayerID())->team);
 		return true;
 	}
 };

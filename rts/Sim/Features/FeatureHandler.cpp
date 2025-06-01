@@ -24,7 +24,8 @@ CR_REG_METADATA(CFeatureHandler, (
 	CR_MEMBER(deletedFeatureIDs),
 	CR_MEMBER(activeFeatureIDs),
 	CR_MEMBER(features),
-	CR_MEMBER(updateFeatures)
+	CR_MEMBER(updateFeatures),
+	CR_MEMBER(featuresJustAdded)
 ))
 
 /******************************************************************************/
@@ -115,6 +116,7 @@ CFeature* CFeatureHandler::LoadFeature(const FeatureLoadParams& params) {
 
 	// calls back into AddFeature
 	feature->Initialize(params);
+	featuresJustAdded.emplace_back(feature);
 	return feature;
 }
 
@@ -185,9 +187,9 @@ CFeature* CFeatureHandler::CreateWreckage(const FeatureLoadParams& cparams)
 	return (LoadFeature(params));
 }
 
-void CFeatureHandler::UpdatePreframe()
+void CFeatureHandler::UpdatePreFrame()
 {
-	SCOPED_TIMER("Sim::Features::UpdatePreframe");
+	SCOPED_TIMER("Sim::Features::UpdatePreFrame");
 
 	for (auto* feature : features) {
 		if (!feature) // sucks, but w/e
@@ -195,6 +197,16 @@ void CFeatureHandler::UpdatePreframe()
 
 		feature->UpdatePrevFrameTransform();
 	}
+}
+
+void CFeatureHandler::UpdatePostFrame()
+{
+	SCOPED_TIMER("Sim::Features::UpdatePostFrame");
+
+	for (auto* feature : featuresJustAdded) {
+		feature->UpdatePrevFrameTransform();
+	}
+	featuresJustAdded.clear();
 }
 
 void CFeatureHandler::Update()

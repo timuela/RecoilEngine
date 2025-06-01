@@ -1,6 +1,5 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#include <functional>
 
 #include "UnitLoader.h"
 #include "Unit.h"
@@ -20,6 +19,7 @@
 #include "Map/ReadMap.h"
 
 #include "Sim/Ecs/Registry.h"
+#include "Sim/Features/Feature.h"
 #include "Sim/Features/FeatureDef.h"
 #include "Sim/Features/FeatureDefHandler.h"
 #include "Sim/Features/FeatureHandler.h"
@@ -118,7 +118,7 @@ CUnit* CUnitLoader::LoadUnit(const UnitLoadParams& params)
 
 
 
-void CUnitLoader::ParseAndStoreGiveUnitsCommand(const std::vector<std::string>& args, int team)
+void CUnitLoader::ParseAndExecuteGiveUnitsCommand(const std::vector<std::string>& args, int team)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (args.size() < 2) {
@@ -176,16 +176,7 @@ void CUnitLoader::ParseAndStoreGiveUnitsCommand(const std::vector<std::string>& 
 		return;
 	}
 
-	deferredGiveCommand = std::make_tuple(objectName, pos, amount, team, featureAllyTeam);
-}
-
-void CUnitLoader::ExecuteDeferredGiveUnits()
-{
-	if (!deferredGiveCommand)
-		return;
-
-	std::apply(std::bind_front(&CUnitLoader::GiveUnits, this), deferredGiveCommand.value());
-	deferredGiveCommand = std::nullopt;
+	GiveUnits(objectName, pos, amount, team, featureAllyTeam);
 }
 
 
@@ -231,7 +222,10 @@ void CUnitLoader::GiveUnits(const std::string& objectName, float3 pos, int amoun
 				true,
 			};
 
-			LoadUnit(unitParams);
+			auto* unit = LoadUnit(unitParams);
+
+			// special treatment because units spawned with cheats appear before the gameframe
+			unit->UpdatePrevFrameTransform();
 		}
 	} else {
 		unsigned int numRequestedUnits = amount;
@@ -291,7 +285,10 @@ void CUnitLoader::GiveUnits(const std::string& objectName, float3 pos, int amoun
 						true,
 					};
 
-					LoadUnit(unitParams);
+					auto* unit = LoadUnit(unitParams);
+
+					// special treatment because units spawned with cheats appear before the gameframe
+					unit->UpdatePrevFrameTransform();
 				}
 			}
 
@@ -339,7 +336,10 @@ void CUnitLoader::GiveUnits(const std::string& objectName, float3 pos, int amoun
 						0, // smokeTime
 					};
 
-					featureHandler.LoadFeature(params);
+					auto* feature = featureHandler.LoadFeature(params);
+
+					// special treatment because features spawned with cheats appear before the gameframe
+					feature->UpdatePrevFrameTransform();
 
 					--total;
 				}

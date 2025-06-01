@@ -1,13 +1,12 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#pragma once
+#ifndef UNIT_LOADER_H
+#define UNIT_LOADER_H
 
 #include "System/float3.h"
 
 #include <string>
 #include <vector>
-#include <optional>
-#include <tuple>
 
 class CCommandAI;
 class CUnit;
@@ -42,15 +41,14 @@ public:
 
 	CWeapon* LoadWeapon(CUnit* owner, const UnitDefWeapon* udw);
 
-	void ParseAndStoreGiveUnitsCommand(const std::vector<std::string>& args, int team);
-	void ExecuteDeferredGiveUnits();
+	void ParseAndExecuteGiveUnitsCommand(const std::vector<std::string>& args, int team);
 
 	void FlattenGround(const CUnit* unit);
 	void RestoreGround(const CUnit* unit);
 private:
 	void GiveUnits(const std::string& objectName, float3 pos, int amount, int team, int allyTeamFeatures);
-private:
-	std::optional<std::tuple<std::string, float3, int, int, int>> deferredGiveCommand = std::nullopt;
 };
 
 #define unitLoader (CUnitLoader::GetInstance())
+
+#endif /* UNIT_LOADER_H */
