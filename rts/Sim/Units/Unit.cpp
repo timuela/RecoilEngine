@@ -244,10 +244,12 @@ void CUnit::PreInit(const UnitLoadParams& params)
 	upright  = unitDef->upright;
 
 	SetVelocity(params.speed);
-	preFrameTra = Transform(CQuaternion::MakeFrom(GetTransformMatrix(true)), params.pos.cClampInMap(), 1.0f);
+	preFrameTra.t = params.pos.cClampInMap();
+	preFrameTra.s = 1.0f;
 	Move(preFrameTra.t, false);
 
 	UpdateDirVectors(!upright && IsOnGround(), false, 0.0f);
+	preFrameTra.r = CQuaternion::MakeFrom(GetTransformMatrix(true));
 	SetMidAndAimPos(model->relMidPos, model->relMidPos, true);
 	SetRadiusAndHeight(model);
 	UpdateMidAndAimPos();
