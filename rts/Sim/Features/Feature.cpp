@@ -227,7 +227,7 @@ void CFeature::Initialize(const FeatureLoadParams& params)
 
 	UpdateMidAndAimPos();
 	UpdateTransformAndPhysState();
-
+	preFrameTra = Transform::FromMatrix(GetTransformMatrix(true));
 
 	collisionVolume = def->collisionVolume;
 	selectionVolume = def->selectionVolume;
