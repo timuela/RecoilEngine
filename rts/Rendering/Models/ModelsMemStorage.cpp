@@ -31,13 +31,14 @@ size_t ModelUniformsStorage::AddObject(const CWorldObject* o)
 	const size_t idx = storage.Add(ModelUniformData());
 	objectsMap[const_cast<CWorldObject*>(o)] = idx;
 
-	if (idx + 1 == storage.size()) {
+	if (storage.size() > updateList.Size()) {
 		//new item got added to the end of storage
 		updateList.EmplaceBackUpdate();
 	} else {
 		// storage got updated somewhere in the middle, use updateList.SetUpdate()
 		updateList.SetUpdate(idx);
 	}
+	assert(storage.size() == updateList.Size());
 
 	return idx;
 }
@@ -59,6 +60,8 @@ void ModelUniformsStorage::DelObject(const CWorldObject* o)
 		// storage got updated somewhere in the middle, use updateList.SetUpdate()
 		updateList.SetUpdate(it->second);
 	}
+
+	assert(storage.size() == updateList.Size());
 
 	objectsMap.erase(it);
 }
