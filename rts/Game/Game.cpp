@@ -99,6 +99,7 @@
 #include "Sim/Units/Scripts/UnitScriptEngine.h"
 #include "Sim/Units/UnitHandler.h"
 #include "Sim/Units/UnitDefHandler.h"
+#include "Sim/Units/UnitLoader.h"
 #include "Sim/Weapons/WeaponDefHandler.h"
 #include "Sim/Weapons/WeaponLoader.h"
 #include "UI/CommandColors.h"
@@ -1876,6 +1877,9 @@ void CGame::SimFrame() {
 	// everything from here is simulation
 	{
 		SCOPED_SPECIAL_TIMER("Sim");
+
+		// enact deferred GiveUnits()
+		unitLoader->ExecuteDeferredGiveUnits();
 
 		// Lua unit scripts change piece positions and orientations in eventHandler.GameFrame(gs->frameNum);
 		// so we need to save the previous unit state before it happened

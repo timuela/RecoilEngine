@@ -1,5 +1,6 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
+#include <functional>
 
 #include "UnitLoader.h"
 #include "Unit.h"
@@ -117,7 +118,7 @@ CUnit* CUnitLoader::LoadUnit(const UnitLoadParams& params)
 
 
 
-void CUnitLoader::ParseAndExecuteGiveUnitsCommand(const std::vector<std::string>& args, int team)
+void CUnitLoader::ParseAndStoreGiveUnitsCommand(const std::vector<std::string>& args, int team)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (args.size() < 2) {
@@ -175,7 +176,16 @@ void CUnitLoader::ParseAndExecuteGiveUnitsCommand(const std::vector<std::string>
 		return;
 	}
 
-	GiveUnits(objectName, pos, amount, team, featureAllyTeam);
+	deferredGiveCommand = std::make_tuple(objectName, pos, amount, team, featureAllyTeam);
+}
+
+void CUnitLoader::ExecuteDeferredGiveUnits()
+{
+	if (!deferredGiveCommand)
+		return;
+
+	std::apply(std::bind_front(&CUnitLoader::GiveUnits, this), deferredGiveCommand.value());
+	deferredGiveCommand = std::nullopt;
 }
 
 

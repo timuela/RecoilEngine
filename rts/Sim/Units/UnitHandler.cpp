@@ -433,12 +433,11 @@ void CUnitHandler::UpdatePreframe()
 	inUpdateCall = true;
 
 	for (CUnit* unit : activeUnits) {
-		unit->PreUpdate();
+		unit->UpdatePrevFrameTransform();
 	}
 
 	inUpdateCall = false;
 }
-
 
 void CUnitHandler::Update()
 {
