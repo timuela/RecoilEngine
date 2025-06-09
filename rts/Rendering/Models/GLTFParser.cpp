@@ -417,7 +417,6 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 
 	auto* rootPiece = AllocRootEmptyPiece(&model, initTransform, asset, defaultSceneIdx);
 	model.FlattenPieceTree(rootPiece);
-	model.SetPieceMatrices();
 
 	spring::unordered_map<size_t, size_t> nodeIdxToPieceIdx;
 	for (size_t pi = 0; pi < model.pieceObjects.size(); ++pi) {
