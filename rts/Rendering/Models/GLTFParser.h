@@ -14,8 +14,7 @@ namespace fastgltf {
 
 struct Transform;
 
-class GLTFPiece : public S3DModelPiece {
-public:
+struct GLTFPiece : public S3DModelPiece {
 	static constexpr size_t INVALID_NODE_INDEX = size_t(-1);
 	size_t nodeIndex = INVALID_NODE_INDEX;
 };

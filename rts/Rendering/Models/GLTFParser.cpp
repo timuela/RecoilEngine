@@ -57,9 +57,16 @@ namespace Impl {
 				const size_t prevVertSize = verts.size();
 				const size_t prevIndcSize = indcs.size();
 
+				bool seenNormal = false;
+				bool seenTangents = false;
+				bool seenTex2 = false;
+
 				std::vector<std::array<std::pair<uint16_t, float>, 8>> vertexWeights;
 
-				assert(prim.type == fastgltf::PrimitiveType::Triangles);
+				if (prim.type != fastgltf::PrimitiveType::Triangles) {
+					throw content_error("A GLTF model has invalid primitive type " + std::to_string(static_cast<uint32_t>(prim.type)));
+				}
+
 				for (const auto* primAttIt = prim.attributes.cbegin(); primAttIt != prim.attributes.cend(); ++primAttIt) {
 					auto& accessor = asset.accessors[primAttIt->accessorIndex];
 
@@ -82,6 +89,7 @@ namespace Impl {
 						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, accessor, [&](const auto& val, std::size_t idx) {
 							verts[prevVertSize + idx].normal = float3{ val.x(), val.y(), val.z() }.ANormalize();
 						});
+						seenNormal = true;
 					} break;
 					case hashString("TEXCOORD_0"): {
 						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset, accessor, [&](const auto& val, std::size_t idx) {
@@ -92,12 +100,14 @@ namespace Impl {
 						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(asset, accessor, [&](const auto& val, std::size_t idx) {
 							verts[prevVertSize + idx].texCoords[1] = float2(val.x(), val.y());
 						});
+						seenTex2 = true;
 					} break;
 					case hashString("TANGENT"): {
 						fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(asset, accessor, [&](const auto& val, std::size_t idx) {
 							verts[prevVertSize + idx].sTangent = (val.w() * float3{ val.x(), val.y(), val.z() }).ANormalize();
 							verts[prevVertSize + idx].tTangent = verts[prevVertSize + idx].normal.cross(verts[prevVertSize + idx].sTangent).ANormalize();
 						});
+						seenTangents = true;
 					} break;
 					case hashString("JOINTS_0"): {
 						assert(skinPtr);
@@ -140,7 +150,7 @@ namespace Impl {
 					default:
 						break;
 					}
-			}
+				}
 
 			for (auto& vertexWeight : vertexWeights) {
 				for (auto& w : vertexWeight) {
@@ -171,6 +181,19 @@ namespace Impl {
 			fastgltf::iterateAccessorWithIndex<uint32_t>(asset, accessor, [&](std::uint32_t index, std::size_t idx) {
 				indcs[idx] = index;
 			});
+
+			// certain post-processing
+			if (!seenTex2) {
+				for (auto& vert : verts) {
+					vert.texCoords[1] = vert.texCoords[0];
+				}
+			}
+
+			if (!seenNormal)
+				ModelUtils::CalculateNormals(verts, indcs);
+
+			if (!seenTangents)
+				ModelUtils::CalculateTangents(verts, indcs);
 		}
 	}
 
@@ -258,6 +281,13 @@ namespace Impl {
 				if (value.is_bool())
 					optionalModelParams.invertTeamColor = value;
 			} break;
+			case hashString("s3ocompat"): {
+				if (value.is_bool())
+					optionalModelParams.s3oCompat = value;
+			} break;
+			default: {
+				/*NO-OP*/
+			} break;
 			}
 		}
 	}
@@ -303,6 +333,27 @@ namespace Impl {
 		}
 
 		return transforms;
+	}
+
+	void FlipCoordSystemHandedness(S3DModel& model) {
+		for (auto* piece : model.pieceObjects) {
+			for (auto& vert : piece->GetVerticesVec()) {
+				vert.pos.x = -vert.pos.x;
+				// the math below is questionable
+				vert.normal.x = -vert.normal.x;
+				vert.sTangent.x = -vert.sTangent.x;
+				vert.tTangent.y = -vert.tTangent.y;
+				vert.tTangent.z = -vert.tTangent.z;
+			}
+
+			for (size_t i = 0, N = piece->GetIndicesVec().size(); i < N; i += 3) {
+				auto& indVec = piece->GetIndicesVec();
+				std::swap(
+					indVec[i + 0],
+					indVec[i + 2]
+				);
+			}
+		}
 	}
 }
 
@@ -386,7 +437,7 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 	}
 
 	// get the (root-level) model table
-	const LuaTable& modelTable = metaFileParser.GetRoot();
+	const auto modelTable = metaFileParser.GetRoot();
 
 	if (!modelTable.IsValid()) {
 		LOG_SL(LOG_SECTION_MODEL, L_INFO, "No valid model metadata in '%s' or no meta-file", metaFileName.c_str());
@@ -479,6 +530,9 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 		else
 			Skinning::ReparentMeshesTrianglesToBones(&model, allSkinnedMeshes);
 	}
+
+	if (optionalModelParams.s3oCompat.value_or(false))
+		Impl::FlipCoordSystemHandedness(model);
 
 	// will also calculate pieces / model bounding box
 	ModelUtils::ApplyModelProperties(&model, optionalModelParams);

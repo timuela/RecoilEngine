@@ -266,6 +266,7 @@ void ModelUtils::GetModelParams(const LuaTable& modelTable, ModelParams& modelPa
 
 	CondGetLuaValue(modelParams.flipTextures, "fliptextures");
 	CondGetLuaValue(modelParams.invertTeamColor, "invertteamcolor");
+	CondGetLuaValue(modelParams.s3oCompat, "s3ocompat");
 }
 
 void ModelUtils::ApplyModelProperties(S3DModel* model, const ModelParams& modelParams)
@@ -285,6 +286,130 @@ void ModelUtils::ApplyModelProperties(S3DModel* model, const ModelParams& modelP
 
 	model->radius = modelParams.radius.value_or(model->CalcDrawRadius());
 	model->height = modelParams.height.value_or(model->CalcDrawHeight());
+}
+
+void ModelUtils::CalculateNormals(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs)
+{
+	if (indcs.size() < 3)
+		return;
+
+	// set the triangle-level S- and T-tangents
+	for (size_t i = 0, n = indcs.size(); i < n; i += 3) {
+
+		const auto& v0idx = indcs[i + 0];
+		const auto& v1idx = indcs[i + 1];
+		const auto& v2idx = indcs[i + 2];
+
+		if (v1idx == INVALID_INDEX || v2idx == INVALID_INDEX) {
+			// not a valid triangle, skip
+			i += 3; continue;
+		}
+
+		auto& v0 = verts[v0idx];
+		auto& v1 = verts[v1idx];
+		auto& v2 = verts[v2idx];
+
+		const auto& p0 = v0.pos;
+		const auto& p1 = v1.pos;
+		const auto& p2 = v2.pos;
+
+		const auto p10 = p1 - p0;
+		const auto p20 = p2 - p0;
+
+		const auto N = p10.cross(p20);
+
+		v0.normal += N;
+		v1.normal += N;
+		v2.normal += N;
+	}
+
+	// set the smoothed per-vertex tangents
+	for (size_t i = 0, n = verts.size(); i < n; i++) {
+		float3& N = verts[i].normal;
+
+		N.AssertNaNs();
+
+		const float sql = N.SqLength();
+		if likely(N.CheckNaNs() && sql > float3::nrm_eps())
+			N *= math::isqrt(sql);
+		else
+			N = float3{ 0.0f, 1.0f, 0.0f };
+	}
+}
+
+void ModelUtils::CalculateTangents(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs)
+{
+	if (indcs.size() < 3)
+		return;
+
+	// set the triangle-level S- and T-tangents
+	for (size_t i = 0, n = indcs.size(); i < n; i += 3) {
+
+		const auto& v0idx = indcs[i + 0];
+		const auto& v1idx = indcs[i + 1];
+		const auto& v2idx = indcs[i + 2];
+
+		if (v1idx == INVALID_INDEX || v2idx == INVALID_INDEX) {
+			// not a valid triangle, skip
+			i += 3; continue;
+		}
+
+		auto& v0 = verts[v0idx];
+		auto& v1 = verts[v1idx];
+		auto& v2 = verts[v2idx];
+
+		const auto& p0 = v0.pos;
+		const auto& p1 = v1.pos;
+		const auto& p2 = v2.pos;
+
+		const auto& tc0 = v0.texCoords[0];
+		const auto& tc1 = v1.texCoords[0];
+		const auto& tc2 = v2.texCoords[0];
+
+		const auto p10 = p1 - p0;
+		const auto p20 = p2 - p0;
+
+		const auto tc10 = tc1 - tc0;
+		const auto tc20 = tc2 - tc0;
+
+		// if d is 0, texcoors are degenerate
+		const float d = (tc10.x * tc20.y - tc20.x * tc10.y);
+		const float r = (abs(d) < 1e-9f) ? 1.0f : 1.0f / d;
+
+		// note: not necessarily orthogonal to each other
+		// or to vertex normal, only to the triangle plane
+		const auto sdir = ( p10 * tc20.y - p20 * tc10.y) * r;
+		const auto tdir = (-p10 * tc20.x + p20 * tc10.x) * r;
+
+		v0.sTangent += sdir;
+		v1.sTangent += sdir;
+		v2.sTangent += sdir;
+
+		v0.tTangent += tdir;
+		v1.tTangent += tdir;
+		v2.tTangent += tdir;
+	}
+
+	// set the smoothed per-vertex tangents
+	for (size_t i = 0, n = verts.size(); i < n; i++) {
+		float3& N = verts[i].normal;
+		float3& T = verts[i].sTangent;
+		float3& B = verts[i].tTangent; // bi
+
+		N.AssertNaNs(); N.SafeANormalize();
+		T.AssertNaNs();
+		B.AssertNaNs();
+
+		//const float bitangentAngle = B.dot(N.cross(T)); // dot(B,B')
+		//const float handednessSign = Sign(bitangentAngle);
+
+		T = (T - N * N.dot(T));// *handednessSign;
+		T.SafeANormalize();
+
+		B = (B - N * N.dot(B) - T * T.dot(N));
+		//B = N.cross(T); //probably better
+		B.SafeANormalize();
+	}
 }
 
 void ModelLog::LogModelProperties(const S3DModel& model)

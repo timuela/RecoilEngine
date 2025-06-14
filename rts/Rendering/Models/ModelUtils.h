@@ -32,6 +32,7 @@ namespace ModelUtils {
 		std::optional<float> height;
 		std::optional<bool> flipTextures;
 		std::optional<bool> invertTeamColor;
+		std::optional<bool> s3oCompat;
 	};
 
 	// Iterate over the model and calculate its overall dimensions
@@ -45,6 +46,14 @@ namespace ModelUtils {
 
 	// Apply model properties from modelParams
 	void ApplyModelProperties(S3DModel* model, const ModelParams& modelParams);
+
+	// Calculate missing normals
+	void CalculateNormals(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs);
+
+	// Calculate missing tangents
+	void CalculateTangents(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs);
+
+	static constexpr uint32_t INVALID_INDEX = uint32_t(-1);
 }
 
 namespace ModelLog {
