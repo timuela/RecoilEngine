@@ -183,11 +183,8 @@ namespace Impl {
 			});
 
 			// certain post-processing
-			if (!seenTex2) {
-				for (auto& vert : verts) {
-					vert.texCoords[1] = vert.texCoords[0];
-				}
-			}
+			if (!seenTex2)
+				std::for_each(verts.begin(), verts.end(), [](auto& vert) { vert.texCoords[1] = vert.texCoords[0]; });
 
 			if (!seenNormal)
 				ModelUtils::CalculateNormals(verts, indcs);
