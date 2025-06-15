@@ -1,6 +1,34 @@
 #include "AABB.hpp"
 #include "System/SpringMath.h"
 
+void AABB::CalcCorners(std::array<float3, 8>& verts) const
+{
+	// bottom
+	verts[0] = float3{ mins.x, mins.y, mins.z };
+	verts[1] = float3{ mins.x, mins.y, maxs.z };
+	verts[2] = float3{ maxs.x, mins.y, mins.z };
+	verts[3] = float3{ maxs.x, mins.y, maxs.z };
+	// top
+	verts[4] = float3{ mins.x, maxs.y, mins.z };
+	verts[5] = float3{ mins.x, maxs.y, maxs.z };
+	verts[6] = float3{ maxs.x, maxs.y, mins.z };
+	verts[7] = float3{ maxs.x, maxs.y, maxs.z };
+}
+
+void AABB::CalcCorners(float3 verts[8]) const
+{
+	// bottom
+	verts[0] = float3{ mins.x, mins.y, mins.z };
+	verts[1] = float3{ mins.x, mins.y, maxs.z };
+	verts[2] = float3{ maxs.x, mins.y, mins.z };
+	verts[3] = float3{ maxs.x, mins.y, maxs.z };
+	// top
+	verts[4] = float3{ mins.x, maxs.y, mins.z };
+	verts[5] = float3{ mins.x, maxs.y, maxs.z };
+	verts[6] = float3{ maxs.x, maxs.y, mins.z };
+	verts[7] = float3{ maxs.x, maxs.y, maxs.z };
+}
+
 float3 AABB::ClampInto(const float3& pnt) const
 {
     return float3{

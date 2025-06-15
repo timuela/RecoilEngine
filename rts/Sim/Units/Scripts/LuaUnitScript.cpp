@@ -1615,7 +1615,7 @@ int CLuaUnitScript::GetPieceTranslation(lua_State* L)
 		return 0;
 
 	LocalModelPiece* piece = ParseLocalModelPiece(L, activeScript, __func__);
-	return ToLua(L, piece->GetPosition() - piece->original->offset);
+	return ToLua(L, piece->GetPosition() - piece->original->GetBakedTransform().t);
 }
 
 

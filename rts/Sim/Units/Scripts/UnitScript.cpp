@@ -279,10 +279,10 @@ void CUnitScript::AddAnim(AnimType type, int piece, int axis, float speed, float
 	float destf = 0.0f;
 
 	if (type == AMove) {
-		destf = pieces[piece]->original->offset[axis] + dest;
+		destf = dest;
 	} else {
 		// clamp destination (angle) for turn-anims
-		destf = mix(dest, ClampRad(dest), type == ATurn);
+		destf = (type == ATurn) ? ClampRad(dest) : dest;
 	}
 
 	AnimContainerTypeIt animInfoIt;
@@ -412,10 +412,7 @@ void CUnitScript::MoveNow(int piece, int axis, float destination)
 	LocalModelPiece* p = pieces[piece];
 
 	float3 pos = p->GetPosition();
-	float3 ofs = p->original->offset;
-
-	pos[axis] = ofs[axis] + destination;
-
+	pos[axis] = destination;
 	p->SetPosition(pos);
 }
 

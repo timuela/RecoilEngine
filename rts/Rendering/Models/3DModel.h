@@ -14,6 +14,7 @@
 #include "Lua/LuaObjectMaterial.h"
 #include "Rendering/GL/VBO.h"
 #include "Sim/Misc/CollisionVolume.h"
+#include "System/AABB.hpp"
 #include "System/Matrix44f.h"
 #include "System/Transform.hpp"
 #include "System/type2.h"
@@ -29,9 +30,6 @@ static constexpr int NUM_MODEL_TEXTURES = 2;
 static constexpr int NUM_MODEL_UVCHANNS = 2;
 static constexpr int MAX_PIECES_PER_MODEL = std::numeric_limits<uint16_t>::max() - 1;
 static constexpr int INV_PIECE_NUM = MAX_PIECES_PER_MODEL + 1;
-
-static constexpr float3 DEF_MIN_SIZE( 10000.0f,  10000.0f,  10000.0f);
-static constexpr float3 DEF_MAX_SIZE(-10000.0f, -10000.0f, -10000.0f);
 
 enum ModelType {
 	MODELTYPE_3DO    = 0,
@@ -180,18 +178,11 @@ struct S3DModelPiece {
 		bposeTransform.LoadIdentity();
 		bakedTransform.LoadIdentity();
 
-		offset = ZeroVector;
-		goffset = ZeroVector;
-		scale = 1.0f;
-
-		mins = DEF_MIN_SIZE;
-		maxs = DEF_MAX_SIZE;
+		aabb.Reset();
 
 		vertIndex = ~0u;
 		indxStart = ~0u;
 		indxCount = ~0u;
-
-		hasBakedTra = false;
 	}
 
 	virtual float3 GetEmitPos() const;
@@ -206,8 +197,6 @@ struct S3DModelPiece {
 
 	void DrawElements(GLuint prim = GL_TRIANGLES) const;
 	static void DrawShatterElements(uint32_t vboIndxStart, uint32_t vboIndxCount, GLuint prim = GL_TRIANGLES);
-
-	bool HasBackedTra() const { return hasBakedTra; }
 public:
 	void DrawStaticLegacy(bool bind, bool bindPosMat) const;
 	void DrawStaticLegacyRec() const;
@@ -216,10 +205,9 @@ public:
 	void Shatter(float, int, int, int, const float3, const float3, const CMatrix44f&) const;
 
 	void SetPieceTransform(const Transform& parentTra);
-	void SetBakedTransform(const Transform& tra) {
-		bakedTransform = tra;
-		hasBakedTra = !tra.IsIdentity();
-	}
+	void SetBakedTransform(const Transform& tra) { bakedTransform = tra; }
+	const auto& GetBakedTransform() const { return bakedTransform; }
+	const auto& GetBPoseTransform() const { return bposeTransform; }
 
 	Transform ComposeTransform(const float3& t, const float3& r, float s) const;
 
@@ -250,15 +238,10 @@ public:
 	S3DModelPiece* parent = nullptr;
 	CollisionVolume colvol;
 
-	Transform bposeTransform;    /// bind-pose transform, including baked rots
-	Transform bakedTransform;    /// baked local-space rotations
+	Transform bposeTransform;    /// bind-pose transform, global to the model
+	Transform bakedTransform;    /// bind-pose transform, local to the parent piece
 
-	float3 offset;      /// local (piece-space) offset wrt. parent piece
-	float3 goffset;     /// global (model-space) offset wrt. root piece
-	float scale{1.0f};  /// baked uniform scaling factor (assimp-only)
-
-	float3 mins = DEF_MIN_SIZE;
-	float3 maxs = DEF_MAX_SIZE;
+	AABB aabb;
 
 	uint32_t vertIndex = ~0u; // global vertex number offset
 	uint32_t indxStart = ~0u; // global Index VBO offset
@@ -269,8 +252,6 @@ protected:
 	std::vector<uint32_t> shatterIndices;
 
 	S3DModel* model;
-
-	bool hasBakedTra;
 public:
 	friend class CAssParser;
 };
@@ -296,8 +277,7 @@ struct S3DModel
 		, radius(0.0f)
 		, height(0.0f)
 
-		, mins(DEF_MIN_SIZE)
-		, maxs(DEF_MAX_SIZE)
+		, aabb()
 		, relMidPos(ZeroVector)
 
 		, loadStatus(NOTLOADED)
@@ -311,9 +291,8 @@ struct S3DModel
 
 	S3DModel& operator = (const S3DModel& m) = delete;
 	S3DModel& operator = (S3DModel&& m) noexcept {
-		name    = std::move(m.name   );
-		texs[0] = std::move(m.texs[0]);
-		texs[1] = std::move(m.texs[1]);
+		name = std::move(m.name);
+		texs = std::move(m.texs);
 
 		id = m.id;
 		numPieces = m.numPieces;
@@ -324,8 +303,7 @@ struct S3DModel
 		radius = m.radius;
 		height = m.height;
 
-		mins = m.mins;
-		maxs = m.maxs;
+		aabb = m.aabb;
 		relMidPos = m.relMidPos;
 
 		indxStart = m.indxStart;
@@ -368,15 +346,13 @@ struct S3DModel
 
 	void FlattenPieceTree(S3DModelPiece* root);
 
-	void UpdatePiecesMinMaxExtents();
-
 	// default values set by parsers; radius is also cached in WorldObject::drawRadius (used by projectiles)
-	float CalcDrawRadius() const { return ((maxs - mins).Length() * 0.5f); }
-	float CalcDrawHeight() const { return (maxs.y - mins.y); }
+	float CalcDrawRadius() const { return aabb.CalcRadius(); }
+	float CalcDrawHeight() const { return aabb.maxs.y - aabb.mins.y; }
 	float GetDrawRadius() const { return radius; }
 	float GetDrawHeight() const { return height; }
 
-	float3 CalcDrawMidPos() const { return ((maxs + mins) * 0.5f); }
+	float3 CalcDrawMidPos() const { return aabb.CalcCenter(); }
 	float3 GetDrawMidPos() const { return relMidPos; }
 
 	const ScopedTransformMemAlloc& GetTransformAlloc() const { return traAlloc; }
@@ -399,8 +375,7 @@ public:
 	float radius;
 	float height;
 
-	float3 mins;
-	float3 maxs;
+	AABB aabb;
 	float3 relMidPos;
 
 	LoadStatus loadStatus;
@@ -503,6 +478,7 @@ private:
 
 	float3 pos;      // translation relative to parent LMP, *INITIALLY* equal to original->offset
 	float3 rot;      // orientation relative to parent LMP, in radians (updated by scripts)
+	float scale;     // scale (updated by scripts in the future)
 	float3 dir;      // cached copy of original->GetEmitDir()
 
 	mutable Transform pieceSpaceTra;  // transform relative to parent LMP (SYNCED), combines <pos> and <rot>

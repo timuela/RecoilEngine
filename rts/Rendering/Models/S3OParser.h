@@ -43,8 +43,7 @@ public:
 	void SetVertex(int idx, const SVertexData& v) { vertices[idx] = v; }
 	void SetIndex(int idx, const unsigned int drawIdx) { indices[idx] = drawIdx; }
 
-	void Trianglize();
-	void SetMinMaxExtends();
+	void Triangalize();
 	void SetVertexTangents();
 
 public:

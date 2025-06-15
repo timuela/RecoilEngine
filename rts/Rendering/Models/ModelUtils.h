@@ -23,7 +23,7 @@ namespace Skinning {
 };
 
 namespace ModelUtils {
-	struct ModelParams {
+	struct ModelProperties {
 		std::array<std::optional<std::string>, 2> texs;
 		std::optional<float3> relMidPos;
 		std::optional<float3> mins;
@@ -35,17 +35,20 @@ namespace ModelUtils {
 		std::optional<bool> s3oCompat;
 	};
 
-	// Iterate over the model and calculate its overall dimensions
-	void CalculateModelDimensions(S3DModel* model, S3DModelPiece* piece);
+	// Iterate over the pieces and calculate the model AABB
+	void CalculateModelAndPiecesDimensions(S3DModel* model);
 
 	// Calculate model radius from the min/max extents
 	void CalculateModelProperties(S3DModel* model, const LuaTable& modelTable);
 
-	// Get ModelParams from the modelTable
-	void GetModelParams(const LuaTable& modelTable, ModelParams& modelParams);
+	// Calculate model radius from the min/max extents
+	void CalculateModelProperties(S3DModel* model, const float* radius, const float* height, const float3* relMidPos);
 
-	// Apply model properties from modelParams
-	void ApplyModelProperties(S3DModel* model, const ModelParams& modelParams);
+	// Get modelProperties from the modelTable
+	void GetModelProperties(const LuaTable& modelTable, ModelProperties& modelParams);
+
+	// Apply model properties from modelProperties
+	void ApplyModelProperties(S3DModel* model, const ModelProperties& modelProperties);
 
 	// Calculate missing normals
 	void CalculateNormals(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs);

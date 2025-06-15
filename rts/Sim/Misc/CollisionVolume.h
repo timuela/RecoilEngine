@@ -11,6 +11,7 @@
 constexpr float3 WORLD_TO_OBJECT_SPACE = {-1.0f, 1.0f, 1.0f};
 constexpr float COLLISION_VOLUME_EPS = 0.0000000001f;
 
+struct AABB;
 struct LocalModelPiece;
 class CMatrix44f;
 class CSolidObject;
@@ -39,9 +40,9 @@ public:
 	};
 
 public:
-	// base ctor (CREG-only)
 	CollisionVolume() = default;
 	CollisionVolume(const CollisionVolume* v) { *this = *v; }
+	CollisionVolume(const AABB& aabb);
 	CollisionVolume(
 		const char cvTypeChar,
 		const char cvAxisChar,
@@ -69,6 +70,7 @@ public:
 		InitShape(OnesVector * radius * 2.0f, ZeroVector, COLVOL_TYPE_SPHERE, COLVOL_HITTEST_CONT, COLVOL_AXIS_Z);
 	}
 
+	void InitBox(const AABB& aabb);
 	void InitBox(const float3& scales, const float3& offsets = ZeroVector) {
 		InitShape(scales, offsets, COLVOL_TYPE_BOX, COLVOL_HITTEST_CONT, COLVOL_AXIS_Z);
 	}

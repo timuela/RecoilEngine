@@ -238,7 +238,7 @@ void S3DModelPiece::CreateShatterPiecesVariation(int num)
 void S3DModelPiece::Shatter(float pieceChance, int modelType, int texType, int team, const float3 pos, const float3 speed, const CMatrix44f& m) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	const float2  pieceParams = {float3::max(float3::fabs(maxs), float3::fabs(mins)).Length(), pieceChance};
+	const float2  pieceParams = {float3::max(float3::fabs(aabb.maxs), float3::fabs(aabb.mins)).Length(), pieceChance};
 	const   int2 renderParams = {texType, team};
 
 	projectileHandler.AddFlyingPiece(modelType, this, m, pos, speed, pieceParams, renderParams);
@@ -246,7 +246,7 @@ void S3DModelPiece::Shatter(float pieceChance, int modelType, int texType, int t
 
 void S3DModelPiece::SetPieceTransform(const Transform& parentTra)
 {
-	bposeTransform = parentTra * ComposeTransform(offset, ZeroVector, scale);
+	bposeTransform = parentTra * bakedTransform;
 
 	for (S3DModelPiece* c : children) {
 		c->SetPieceTransform(bposeTransform);
@@ -255,18 +255,11 @@ void S3DModelPiece::SetPieceTransform(const Transform& parentTra)
 
 Transform S3DModelPiece::ComposeTransform(const float3& t, const float3& r, float s) const
 {
-	// NOTE:
-	//   ORDER MATTERS (T(baked + script) * R(baked) * R(script) * S(baked))
-	//   translating + rotating + scaling is faster than matrix-multiplying
-	//   m is identity so m.SetPos(t)==m.Translate(t) but with fewer instrs
-	Transform tra;
-	tra.t = t;
-
-	if (hasBakedTra)
-		tra *= bakedTransform;
-
-	tra *= Transform(CQuaternion::FromEulerYPRNeg(-r), ZeroVector, s);
-	return tra;
+	return Transform{
+		CQuaternion::FromEulerYPRNeg(-r),
+		t,
+		s
+	} + bakedTransform;
 }
 
 
@@ -418,8 +411,7 @@ void LocalModel::UpdateBoundingVolume()
 	ZoneScoped;
 
 	// bounding-box extrema (local space)
-	float3 bbMins = DEF_MIN_SIZE;
-	float3 bbMaxs = DEF_MAX_SIZE;
+	AABB aabb;
 
 	for (const auto& lmPiece: pieces) {
 		const auto& tra = lmPiece.GetModelSpaceTransform();
@@ -429,32 +421,11 @@ void LocalModel::UpdateBoundingVolume()
 		if (!piece->HasGeometryData())
 			continue;
 
-		// transform only the corners of the piece's bounding-box
-		const float3 pMins = piece->mins;
-		const float3 pMaxs = piece->maxs;
-		const float3 verts[8] = {
-			// bottom
-			float3(pMins.x,  pMins.y,  pMins.z),
-			float3(pMaxs.x,  pMins.y,  pMins.z),
-			float3(pMaxs.x,  pMins.y,  pMaxs.z),
-			float3(pMins.x,  pMins.y,  pMaxs.z),
-			// top
-			float3(pMins.x,  pMaxs.y,  pMins.z),
-			float3(pMaxs.x,  pMaxs.y,  pMins.z),
-			float3(pMaxs.x,  pMaxs.y,  pMaxs.z),
-			float3(pMins.x,  pMaxs.y,  pMaxs.z),
-		};
-
-		for (const float3& v: verts) {
-			const float3 vertex = tra * v;
-
-			bbMins = float3::min(bbMins, vertex);
-			bbMaxs = float3::max(bbMaxs, vertex);
-		}
+		aabb.Combine(piece->aabb.CalcTransformed(tra));
 	}
 
 	// note: offset is relative to object->pos
-	boundingVolume.InitBox(bbMaxs - bbMins, (bbMaxs + bbMins) * 0.5f);
+	boundingVolume.InitBox(aabb);
 
 	needsBoundariesRecalc = false;
 }
@@ -479,10 +450,12 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 {
 	assert(piece != nullptr);
 
-	pos = piece->offset;
+	pos = float3{};
+	rot = float3{};
+	scale = 1.0f;
 	dir = piece->GetEmitDir();
 
-	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
+	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, scale);
 	prevModelSpaceTra = Transform{ };
 
 	children.reserve(piece->children.size());
@@ -561,7 +534,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 		wasUpdated[0] = true;  //update for current frame
 		updateChildTransform = true;
 
-		pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
+		pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, scale);
 	}
 
 	if (updateChildTransform) {
@@ -587,7 +560,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	dirty = false;
 	wasUpdated[0] = true;  //update for current frame
 
-	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
+	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, scale);
 
 	if (parent != nullptr)
 		modelSpaceTra = parent->modelSpaceTra * pieceSpaceTra;
@@ -738,17 +711,6 @@ void S3DModel::FlattenPieceTree(S3DModelPiece* root)
 		// add children in reverse for the correct DF traversal order
 		for (size_t n = 0; n < p->children.size(); n++) {
 			stack.push_back(p->children[p->children.size() - n - 1]);
-		}
-	}
-}
-
-void S3DModel::UpdatePiecesMinMaxExtents()
-{
-	RECOIL_DETAILED_TRACY_ZONE;
-	for (auto* piece : pieceObjects) {
-		for (const auto& vertex : piece->GetVerticesVec()) {
-			piece->mins = float3::min(piece->mins, vertex.pos);
-			piece->maxs = float3::max(piece->maxs, vertex.pos);
 		}
 	}
 }

@@ -4,7 +4,7 @@
 #include <cinttypes>
 
 #include "3DOParser.h"
-
+#include "ModelUtils.h"
 #include "Sim/Misc/CollisionVolume.h"
 #include "System/Exceptions.h"
 #include "System/UnorderedMap.hpp"
@@ -181,15 +181,11 @@ void C3DOParser::Load(S3DModel& model, const std::string& name)
 	model.type = MODELTYPE_3DO;
 	model.textureType = 0;
 	model.numPieces   = 0;
-	model.mins = DEF_MIN_SIZE;
-	model.maxs = DEF_MAX_SIZE;
 
 	model.FlattenPieceTree(LoadPiece(&model, nullptr, fileBuf, 0));
+	model.SetPieceMatrices();
 
-	// set after the extrema are known
-	model.radius = model.CalcDrawRadius();
-	model.height = model.CalcDrawHeight();
-	model.relMidPos = model.CalcDrawMidPos();
+	ModelUtils::CalculateModelProperties(&model, nullptr, nullptr, nullptr);
 }
 
 
@@ -375,16 +371,18 @@ S3DOPiece* C3DOParser::LoadPiece(S3DModel* model, S3DOPiece* parent, const std::
 	piece->name = StringToLower(GET_TEXT(me.OffsetToObjectName, buf, curOffset));
 	piece->parent = parent;
 	piece->SetParentModel(model);
-	piece->offset.x =  me.XFromParent * SCALE_FACTOR_3DO;
-	piece->offset.y =  me.YFromParent * SCALE_FACTOR_3DO;
-	piece->offset.z = -me.ZFromParent * SCALE_FACTOR_3DO;
-	piece->goffset = piece->offset + ((parent != nullptr)? parent->goffset: ZeroVector);
+	piece->SetBakedTransform(Transform{
+		float3{
+			 me.XFromParent * SCALE_FACTOR_3DO,
+			 me.YFromParent * SCALE_FACTOR_3DO,
+			-me.ZFromParent * SCALE_FACTOR_3DO
+		}
+	});
 
 	piece->GetVertices(&me, buf);
 	piece->GetPrimitives(model, me.OffsetToPrimitiveArray, me.NumberOfPrimitives, ((pos == 0)? me.SelectionPrimitive: -1), buf, teamTextures);
 
 	piece->CalcNormals();
-	piece->SetMinMaxExtends();
 
 	switch (piece->verts.size()) {
 		case 0: { piece->emitDir =    FwdVector   ; } break;
@@ -394,11 +392,6 @@ S3DOPiece* C3DOParser::LoadPiece(S3DModel* model, S3DOPiece* parent, const std::
 			piece->emitDir = piece->verts[1] - piece->verts[0];
 		} break;
 	}
-
-	model->mins = float3::min(piece->goffset + piece->mins, model->mins);
-	model->maxs = float3::max(piece->goffset + piece->maxs, model->maxs);
-
-	piece->SetCollisionVolume(CollisionVolume('b', 'z', piece->maxs - piece->mins, (piece->maxs + piece->mins) * 0.5f));
 
 	if (me.OffsetToChildObject > 0)
 		piece->children.push_back(LoadPiece(model, piece, buf, me.OffsetToChildObject));
@@ -503,14 +496,3 @@ void S3DOPiece::CalcNormals()
 		}
 	}
 }
-
-
-void S3DOPiece::SetMinMaxExtends()
-{
-	RECOIL_DETAILED_TRACY_ZONE;
-	for (const float3 vp: verts) {
-		mins = float3::min(mins, vp);
-		maxs = float3::max(maxs, vp);
-	}
-}
-

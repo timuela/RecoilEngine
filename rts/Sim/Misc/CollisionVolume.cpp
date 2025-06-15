@@ -1,9 +1,11 @@
+#include "CollisionVolume.h"
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
 #include "CollisionVolume.h"
 #include "Rendering/Models/3DModel.h"
 #include "Sim/Units/Unit.h"
 #include "Sim/Features/Feature.h"
+#include "System/AABB.hpp"
 #include "System/Matrix44f.h"
 #include "System/SpringMath.h"
 #include "System/StringUtil.h"
@@ -55,6 +57,11 @@ CollisionVolume& CollisionVolume::operator = (const CollisionVolume& v) {
 	return *this;
 }
 
+CollisionVolume::CollisionVolume(const AABB& aabb)
+{
+	InitBox(aabb);
+}
+
 CollisionVolume::CollisionVolume(
 	const char cvTypeChar,
 	const char cvAxisChar,
@@ -96,6 +103,11 @@ void CollisionVolume::PostLoad()
 	SetBoundingRadius();
 }
 
+
+void CollisionVolume::InitBox(const AABB& aabb)
+{
+	InitBox(aabb.CalcScales(), aabb.CalcCenter());
+}
 
 void CollisionVolume::InitShape(
 	const float3& scales,

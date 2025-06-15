@@ -209,23 +209,25 @@ void Skinning::ReparentCompleteMeshesToBones(S3DModel* model, const std::vector<
 	}
 }
 
-void ModelUtils::CalculateModelDimensions(S3DModel* model, S3DModelPiece* piece)
+void ModelUtils::CalculateModelAndPiecesDimensions(S3DModel* model)
 {
-	// TODO fix
-	const CMatrix44f scaleRotMat = piece->ComposeTransform(ZeroVector, ZeroVector, piece->scale).ToMatrix();
+	assert(model->aabb.IsReset());
+	for (auto* piece : model->pieceObjects) {
+		assert(piece->aabb.IsReset());
 
-	// cannot set this until parent relations are known, so either here or in BuildPieceHierarchy()
-	piece->goffset = scaleRotMat.Mul(piece->offset) + ((piece->parent != nullptr) ? piece->parent->goffset : ZeroVector);
+		if (!piece->HasGeometryData())
+			continue;
 
-	// update model min/max extents
-	model->mins = float3::min(piece->goffset + piece->mins, model->mins);
-	model->maxs = float3::max(piece->goffset + piece->maxs, model->maxs);
+		for (const auto& vert : piece->GetVerticesVec()) {
+			// piece->aabb is in the piece local space
+			piece->aabb.AddPoint(vert.pos);
 
-	piece->SetCollisionVolume(CollisionVolume('b', 'z', piece->maxs - piece->mins, (piece->maxs + piece->mins) * 0.5f));
+			// model->aabb is in the model local space
+			const auto trVert = piece->GetBPoseTransform() * float4 { vert.pos, 1.0f };
+			model->aabb.AddPoint(trVert);
+		}
 
-	// Repeat with children
-	for (S3DModelPiece* childPiece : piece->children) {
-		CalculateModelDimensions(model, childPiece);
+		piece->SetCollisionVolume(CollisionVolume(piece->aabb));
 	}
 }
 
@@ -233,11 +235,10 @@ void ModelUtils::CalculateModelProperties(S3DModel* model, const LuaTable& model
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 
-	model->UpdatePiecesMinMaxExtents();
-	CalculateModelDimensions(model, model->GetRootPiece());
+	CalculateModelAndPiecesDimensions(model);
 
-	model->mins = modelTable.GetFloat3("mins", model->mins);
-	model->maxs = modelTable.GetFloat3("maxs", model->maxs);
+	model->aabb.mins = modelTable.GetFloat3("mins", model->aabb.mins);
+	model->aabb.maxs = modelTable.GetFloat3("maxs", model->aabb.maxs);
 
 	model->radius = modelTable.GetFloat("radius", model->CalcDrawRadius());
 	model->height = modelTable.GetFloat("height", model->CalcDrawHeight());
@@ -245,7 +246,19 @@ void ModelUtils::CalculateModelProperties(S3DModel* model, const LuaTable& model
 	model->relMidPos = modelTable.GetFloat3("midpos", model->CalcDrawMidPos());
 }
 
-void ModelUtils::GetModelParams(const LuaTable& modelTable, ModelParams& modelParams)
+void ModelUtils::CalculateModelProperties(S3DModel* model, const float* radius, const float* height, const float3* relMidPos)
+{
+	RECOIL_DETAILED_TRACY_ZONE;
+
+	CalculateModelAndPiecesDimensions(model);
+
+	model->radius = radius ? *radius : model->CalcDrawRadius();
+	model->height = height ? *height : model->CalcDrawHeight();
+
+	model->relMidPos = relMidPos ? *relMidPos : model->CalcDrawMidPos();
+}
+
+void ModelUtils::GetModelProperties(const LuaTable& modelTable, ModelProperties& modelParams)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 
@@ -269,23 +282,22 @@ void ModelUtils::GetModelParams(const LuaTable& modelTable, ModelParams& modelPa
 	CondGetLuaValue(modelParams.s3oCompat, "s3ocompat");
 }
 
-void ModelUtils::ApplyModelProperties(S3DModel* model, const ModelParams& modelParams)
+void ModelUtils::ApplyModelProperties(S3DModel* model, const ModelProperties& modelProperties)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 
-	model->UpdatePiecesMinMaxExtents();
-	CalculateModelDimensions(model, model->GetRootPiece());
+	CalculateModelAndPiecesDimensions(model);
 
 	// Note the content from Lua table will overwrite whatever has already been defined in modelParams
 
-	model->mins = modelParams.mins.value_or(model->mins);
-	model->maxs = modelParams.maxs.value_or(model->maxs);
+	model->aabb.mins = modelProperties.mins.value_or(model->aabb.mins);
+	model->aabb.maxs = modelProperties.maxs.value_or(model->aabb.maxs);
 
 	// must come after mins / maxs assignment
-	model->relMidPos = modelParams.relMidPos.value_or(model->CalcDrawMidPos());
+	model->relMidPos = modelProperties.relMidPos.value_or(model->CalcDrawMidPos());
 
-	model->radius = modelParams.radius.value_or(model->CalcDrawRadius());
-	model->height = modelParams.height.value_or(model->CalcDrawHeight());
+	model->radius = modelProperties.radius.value_or(model->CalcDrawRadius());
+	model->height = modelProperties.height.value_or(model->CalcDrawHeight());
 }
 
 void ModelUtils::CalculateNormals(std::vector<SVertexData>& verts, const std::vector<uint32_t>& indcs)
@@ -419,7 +431,7 @@ void ModelLog::LogModelProperties(const S3DModel& model)
 	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->numobjects: %d", model.numPieces);
 	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->radius: %f", model.radius);
 	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->height: %f", model.height);
-	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->mins: (%f,%f,%f)", model.mins[0], model.mins[1], model.mins[2]);
-	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->maxs: (%f,%f,%f)", model.maxs[0], model.maxs[1], model.maxs[2]);
+	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->mins: (%f,%f,%f)", model.aabb.mins[0], model.aabb.mins[1], model.aabb.mins[2]);
+	LOG_SL(LOG_SECTION_MODEL, L_DEBUG, "model->maxs: (%f,%f,%f)", model.aabb.maxs[0], model.aabb.maxs[1], model.aabb.maxs[2]);
 	LOG_SL(LOG_SECTION_MODEL, L_INFO, "Model %s Imported.", model.name.c_str());
 }

@@ -101,6 +101,7 @@ static void LoadDummyModel(S3DModel& model)
 	// give it one empty piece
 	model.AddPiece(g3DOParser.AllocPiece());
 	model.FlattenPieceTree(model.GetRootPiece()); //useless except for setting up traAlloc
+	model.SetPieceMatrices();
 	model.GetRootPiece()->SetCollisionVolume(CollisionVolume('b', 'z', -UpVector, ZeroVector));
 	model.loadStatus = S3DModel::LoadStatus::LOADED;
 }
@@ -227,7 +228,7 @@ void CModelLoader::PreloadModel(const std::string& modelName)
 	assert(Threading::IsMainThread() || Threading::IsGameLoadThread());
 
 	//NB: do preload in any case
-	if (ThreadPool::HasThreads()) {
+	if (ThreadPool::HasThreads() && false) {
 
 		// if already in cache, thread just returns early
 		// not spawning the thread at all would be better but still
@@ -359,8 +360,6 @@ void CModelLoader::FillModel(
 
 	assert(model.numPieces != 0);
 	assert(model.GetRootPiece() != nullptr);
-
-	model.SetPieceMatrices();
 
 	PostProcessGeometry(&model);
 }

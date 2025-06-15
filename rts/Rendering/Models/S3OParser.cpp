@@ -63,17 +63,19 @@ void CS3OParser::Load(S3DModel& model, const std::string& name)
 	model.numPieces = 0;
 	model.texs[0] = (header.texture1 == 0)? "" : (char*) &fileBuf[header.texture1];
 	model.texs[1] = (header.texture2 == 0)? "" : (char*) &fileBuf[header.texture2];
-	model.mins = DEF_MIN_SIZE;
-	model.maxs = DEF_MAX_SIZE;
 
 	textureHandlerS3O.PreloadTexture(&model);
 
 	model.FlattenPieceTree(LoadPiece(&model, nullptr, fileBuf, header.rootPiece));
+	model.SetPieceMatrices();
 
-	// set after the extrema are known
-	model.radius = (header.radius <= 0.01f)? model.CalcDrawRadius(): header.radius;
-	model.height = (header.height <= 0.01f)? model.CalcDrawHeight(): header.height;
-	model.relMidPos = float3(header.midx, header.midy, header.midz);
+	float3 relMidPos(header.midx, header.midy, header.midz);
+	ModelUtils::CalculateModelProperties(
+		&model,
+		(header.radius <= 0.01f) ? nullptr : &header.radius,
+		(header.height <= 0.01f) ? nullptr : &header.height,
+		&relMidPos
+	);
 }
 
 
@@ -117,13 +119,13 @@ SS3OPiece* CS3OParser::LoadPiece(S3DModel* model, SS3OPiece* parent, std::vector
 	// create piece
 	SS3OPiece* piece = AllocPiece();
 
-	piece->offset.x = fp->xoffset;
-	piece->offset.y = fp->yoffset;
-	piece->offset.z = fp->zoffset;
 	piece->primType = fp->primitiveType;
 	piece->name = (char*) &buf[fp->name];
 	piece->parent = parent;
 	piece->SetParentModel(model);
+	piece->SetBakedTransform(Transform{
+		float3{fp->xoffset, fp->yoffset, fp->zoffset}
+	});
 
 	// retrieve vertices
 	piece->SetVertexCount(fp->numVertices);
@@ -155,16 +157,8 @@ SS3OPiece* CS3OParser::LoadPiece(S3DModel* model, SS3OPiece* parent, std::vector
 
 	// post process the piece
 	{
-		piece->goffset = piece->offset + ((parent != NULL)? parent->goffset: ZeroVector);
-
-		piece->Trianglize();
+		piece->Triangalize();
 		piece->SetVertexTangents();
-		piece->SetMinMaxExtends();
-
-		model->mins = float3::min(piece->goffset + piece->mins, model->mins);
-		model->maxs = float3::max(piece->goffset + piece->maxs, model->maxs);
-
-		piece->SetCollisionVolume(CollisionVolume('b', 'z', piece->maxs - piece->mins, (piece->maxs + piece->mins) * 0.5f));
 	}
 
 	// load children pieces
@@ -179,17 +173,8 @@ SS3OPiece* CS3OParser::LoadPiece(S3DModel* model, SS3OPiece* parent, std::vector
 	return piece;
 }
 
-void SS3OPiece::SetMinMaxExtends()
-{
-	RECOIL_DETAILED_TRACY_ZONE;
-	for (const SVertexData& v: vertices) {
-		mins = float3::min(mins, v.pos);
-		maxs = float3::max(maxs, v.pos);
-	}
-}
 
-
-void SS3OPiece::Trianglize()
+void SS3OPiece::Triangalize()
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	switch (primType) {

@@ -143,26 +143,17 @@ struct SPseudoAssPiece {
 
 	S3DModelPiece* parent;
 
-	Transform bposeTransform;    /// bind-pose transform, including baked rots
-	Transform bakedTransform;    /// baked local-space rotations
-
-	float3 offset;     /// local (piece-space) offset wrt. parent piece
-	float scale{1.0f}; /// baked uniform scaling factor (assimp-only)
-
-	bool hasBakedTra;
+	Transform bposeTransform;    /// bind-pose transform, global to the model
+	Transform bakedTransform;    /// bind-pose transform, local to the parent piece
 
 	// copy of S3DModelPiece::SetBakedTransform()
 	void SetBakedTransform(const Transform& tra) {
 		bakedTransform = tra;
-		hasBakedTra = !tra.IsIdentity();
 	}
-
-	// copy of S3DModelPiece::ComposeTransform(), unused?
-	Transform ComposeTransform(const float3& t, const float3& r, float s) const;
 
 	// copy of S3DModelPiece::SetPieceTransform()
 	// except there's no need to do it recursively
-	void SetPieceTransform(const Transform& tra);
+	void SetPieceTransform(const Transform& parentTra);
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -195,13 +186,13 @@ namespace Impl {
 		{
 			LOG_SL(LOG_SECTION_MODEL, L_WARNING, "Recoil doesn't support non-uniform scaling");
 		}
-		piece->scale = scales.x;
 
 		// metadata-translation
-		piece->offset = pieceTable.GetFloat3("offset", aiVectorToFloat3(aiTransVec));
-		piece->offset.x = pieceTable.GetFloat("offsetx", piece->offset.x);
-		piece->offset.y = pieceTable.GetFloat("offsety", piece->offset.y);
-		piece->offset.z = pieceTable.GetFloat("offsetz", piece->offset.z);
+		float3 offset = float3{};
+		offset = pieceTable.GetFloat3("offset", aiVectorToFloat3(aiTransVec));
+		offset.x = pieceTable.GetFloat("offsetx", offset.x);
+		offset.y = pieceTable.GetFloat("offsety", offset.y);
+		offset.z = pieceTable.GetFloat("offsetz", offset.z);
 
 		// metadata-rotation
 		// NOTE:
@@ -209,7 +200,6 @@ namespace Impl {
 		//   together with the (baked) aiRotateQuad they determine the
 		//   model's pose *before* any animations execute
 		//
-		// float3 bakedRotAngles = pieceTable.GetFloat3("rotate", aiQuaternionToRadianAngles(aiRotateQuat) * math::RAD_TO_DEG);
 		float3 bakedRotAngles = pieceTable.GetFloat3("rotate", ZeroVector);
 
 		bakedRotAngles.x = pieceTable.GetFloat("rotatex", bakedRotAngles.x);
@@ -227,9 +217,9 @@ namespace Impl {
 		LOG_SL(LOG_SECTION_PIECE, L_INFO,
 			"(%d:%s) Relative offset (%f,%f,%f), rotate (%f,%f,%f), scale (%f)",
 			model->numPieces, piece->name.c_str(),
-			piece->offset.x, piece->offset.y, piece->offset.z,
+			offset.x, offset.y, offset.z,
 			bakedRotAngles.x, bakedRotAngles.y, bakedRotAngles.z,
-			piece->scale
+			scales.x
 		);
 
 		// construct 'baked' piece-space transform
@@ -240,7 +230,7 @@ namespace Impl {
 		//
 		// note: for all non-AssImp models this is identity!
 
-		Transform bakedTransform(CQuaternion::FromEulerYPRNeg(-bakedRotAngles) * CQuaternion(aiRotateQuat.x, aiRotateQuat.y, aiRotateQuat.z, aiRotateQuat.w), ZeroVector, 1.0f);
+		Transform bakedTransform(CQuaternion::FromEulerYPRNeg(-bakedRotAngles) * CQuaternion(aiRotateQuat.x, aiRotateQuat.y, aiRotateQuat.z, aiRotateQuat.w), offset, scales.x);
 		piece->SetBakedTransform(bakedTransform);
 	}
 
@@ -591,11 +581,10 @@ void CAssParser::Load(S3DModel& model, const std::string& modelFilePath)
 
 	// Update piece hierarchy based on metadata
 	BuildPieceHierarchy(&model, pieceMap, parentMap);
+	model.SetPieceMatrices();
 
 	// skinning support
 	if (!meshNames.empty()) {
-		// need matrices earlier than usual
-		model.SetPieceMatrices();
 		std::vector<SPseudoAssPiece> meshPseudoPieces(meshNames.size());
 		auto mppIt = meshPseudoPieces.begin();
 		for (const auto& meshName : meshNames) {
@@ -634,7 +623,6 @@ void CAssParser::Load(S3DModel& model, const std::string& modelFilePath)
 	}
 
 	ModelUtils::CalculateModelProperties(&model, modelTable);
-
 	ModelLog::LogModelProperties(model);
 }
 
@@ -1150,27 +1138,7 @@ void CAssParser::FindTextures(
 	model->texs[1] = FindTexture(modelTable.GetString("tex2", ""), modelPath, model->texs[1]);
 }
 
-Transform SPseudoAssPiece::ComposeTransform(const float3& t, const float3& r, float s) const
+void SPseudoAssPiece::SetPieceTransform(const Transform& parentTra)
 {
-	// NOTE:
-	//   ORDER MATTERS (T(baked + script) * R(baked) * R(script) * S(baked))
-	//   translating + rotating + scaling is faster than matrix-multiplying
-	//   m is identity so m.SetPos(t)==m.Translate(t) but with fewer instrs
-	Transform tra;
-	tra.t = t;
-
-	if (hasBakedTra)
-		tra *= bakedTransform;
-
-	tra *= Transform(CQuaternion::FromEulerYPRNeg(-r), ZeroVector, s);
-	return tra;
-}
-
-void SPseudoAssPiece::SetPieceTransform(const Transform& tra)
-{
-	bposeTransform = tra * Transform{
-		CQuaternion(),
-		offset,
-		scale
-	};
+	bposeTransform = parentTra * bakedTransform;
 }

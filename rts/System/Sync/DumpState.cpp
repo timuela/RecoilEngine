@@ -280,30 +280,25 @@ void DumpState(int newMinFrameNum, int newMaxFrameNum, int newFramePeriod, std::
 			const auto& m = mv[smn.second];
 			file << "\t\tname: " << m.name << "\n";
 			file << "\t\tnumPieces: " << m.numPieces << "\n";
-			//file << "\t\ttextureType: " << m.textureType << "\n";
 			file << "\t\tmodelType: " << m.type << "\n";
 			file << "\t\tradius: " << TapFloats(m.radius);
 			file << "\t\theight: " << TapFloats(m.height);
-			file << "\t\tmins: " << TapFloats(m.mins);
-			file << "\t\tmaxs: " << TapFloats(m.maxs);
+			file << "\t\tmins: " << TapFloats(m.aabb.mins);
+			file << "\t\tmaxs: " << TapFloats(m.aabb.maxs);
 			file << "\t\trelMidPos: " << TapFloats(m.relMidPos);
 			file << "\t\tpieceObjects: " << m.pieceObjects.size() << "\n";
 			for (const auto* p : m.pieceObjects) {
 				file << "\t\t\tname: " << p->name << "\n";
 				file << "\t\t\tchildrenNum: " << p->children.size() << "\n";
 				file << "\t\t\tparentName: " << (p->parent ? p->parent->name : "(NULL)") << "\n";
-				file << "\t\t\thasBakedMat: " << p->HasBackedTra() << "\n";
 				file << "\t\t\tbposeTransform(t): " << TapFloats(p->bposeTransform.t);
 				file << "\t\t\tbposeTransform(r): " << TapFloats(float4{ p->bposeTransform.r.x, p->bposeTransform.r.y, p->bposeTransform.r.z, p->bposeTransform.r.r });
 				file << "\t\t\tbposeTransform(s): " << TapFloats(p->bposeTransform.s);
 				file << "\t\t\tbakedTransform(t): " << TapFloats(p->bakedTransform.t);
 				file << "\t\t\tbakedTransform(r): " << TapFloats(float4{ p->bakedTransform.r.x, p->bakedTransform.r.y, p->bakedTransform.r.z, p->bakedTransform.r.r });
 				file << "\t\t\tbakedTransform(s): " << TapFloats(p->bakedTransform.s);
-				file << "\t\t\toffset: " << TapFloats(p->offset);
-				file << "\t\t\tgoffset: " << TapFloats(p->goffset);
-				file << "\t\t\tscales: " << TapFloats(p->scale);
-				file << "\t\t\tscales: " << TapFloats(p->mins);
-				file << "\t\t\tscales: " << TapFloats(p->maxs);
+				file << "\t\t\tscales: " << TapFloats(p->aabb.mins);
+				file << "\t\t\tscales: " << TapFloats(p->aabb.maxs);
 
 				// GetVerticesVec and GetIndicesVec are now empty after upload to GPu is complete
 #if 0

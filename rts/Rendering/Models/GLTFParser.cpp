@@ -244,43 +244,43 @@ namespace Impl {
 			return std::make_optional(std::move(f3));
 		};
 
-		auto& optionalModelParams = *reinterpret_cast<ModelUtils::ModelParams*>(userPointer);
+		auto& optionalModelProperties = *reinterpret_cast<ModelUtils::ModelProperties*>(userPointer);
 		for (const auto& [key, value] : *extras) {
 			switch (hashStringLower(key.data(), key.size())) {
 			case hashString("tex1"): {
 				if (value.is_string())
-					optionalModelParams.texs[0] = value;
+					optionalModelProperties.texs[0] = value;
 			} break;
 			case hashString("tex2"): {
 				if (value.is_string())
-					optionalModelParams.texs[1] = value;
+					optionalModelProperties.texs[1] = value;
 			} break;
 			case hashString("midpos"): {
-				optionalModelParams.relMidPos = ParseFloat3(value);
+				optionalModelProperties.relMidPos = ParseFloat3(value);
 			} break;
 			case hashString("mins"): {
-				optionalModelParams.mins = ParseFloat3(value);
+				optionalModelProperties.mins = ParseFloat3(value);
 			} break;
 			case hashString("maxs"): {
-				optionalModelParams.maxs = ParseFloat3(value);
+				optionalModelProperties.maxs = ParseFloat3(value);
 			} break;
 			case hashString("height"): {
-				optionalModelParams.height = static_cast<float>(value.get_double());
+				optionalModelProperties.height = static_cast<float>(value.get_double());
 			} break;
 			case hashString("radius"): {
-				optionalModelParams.radius = static_cast<float>(value.get_double());
+				optionalModelProperties.radius = static_cast<float>(value.get_double());
 			} break;
 			case hashString("fliptextures"): {
 				if (value.is_bool())
-					optionalModelParams.flipTextures = value;
+					optionalModelProperties.flipTextures = value;
 			} break;
 			case hashString("invertteamcolor"): {
 				if (value.is_bool())
-					optionalModelParams.invertTeamColor = value;
+					optionalModelProperties.invertTeamColor = value;
 			} break;
 			case hashString("s3ocompat"): {
 				if (value.is_bool())
-					optionalModelParams.s3oCompat = value;
+					optionalModelProperties.s3oCompat = value;
 			} break;
 			default: {
 				/*NO-OP*/
@@ -289,12 +289,12 @@ namespace Impl {
 		}
 	}
 
-	void FindTextures(S3DModel* model, const fastgltf::Asset& asset, const std::string& modelBaseName, const ModelUtils::ModelParams& optionalModelParams)
+	void FindTextures(S3DModel* model, const fastgltf::Asset& asset, const std::string& modelBaseName, const ModelUtils::ModelProperties& optionalModelProperties)
 	{
 		std::string fullPath;
 		for (int i = 0; i < 2; ++i) {
-			if (optionalModelParams.texs[i].has_value()) {
-				fullPath = "unittextures/" + *optionalModelParams.texs[i];
+			if (optionalModelProperties.texs[i].has_value()) {
+				fullPath = "unittextures/" + *optionalModelProperties.texs[i];
 				if (CFileHandler::FileExists(fullPath, SPRING_VFS_ZIP_FIRST)) {
 					model->texs[i] = fullPath;
 					continue;
@@ -350,6 +350,7 @@ namespace Impl {
 					indVec[i + 2]
 				);
 			}
+			//piece->offset.x = -piece->offset.x;
 		}
 	}
 }
@@ -401,9 +402,9 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 
 	fastgltf::Parser parser;
 
-	ModelUtils::ModelParams optionalModelParams;
+	ModelUtils::ModelProperties optionalModelProperties;
 	parser.setExtrasParseCallback(&Impl::ParseSceneExtra);
-	parser.setUserPointer(&optionalModelParams);
+	parser.setUserPointer(&optionalModelProperties);
 
 	auto maybeGltf = parser.loadGltf(gltfFile.get(), modelPath, PARSER_OPTION, PARSER_CATEGORIES);
 	if (auto error = maybeGltf.error(); error != fastgltf::Error::None) {
@@ -440,24 +441,22 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 		LOG_SL(LOG_SECTION_MODEL, L_INFO, "No valid model metadata in '%s' or no meta-file", metaFileName.c_str());
 	}
 
-	// optionalModelParams will contain all non-empty data from the modelTable
-	ModelUtils::GetModelParams(modelTable, optionalModelParams);
+	// optionalModelProperties will contain all non-empty data from the modelTable
+	ModelUtils::GetModelProperties(modelTable, optionalModelProperties);
 
 	// Load textures
-	Impl::FindTextures(&model, asset, modelName, optionalModelParams);
+	Impl::FindTextures(&model, asset, modelName, optionalModelProperties);
 	LOG_SL(LOG_SECTION_MODEL, L_INFO, "Loading textures. Tex1: '%s' Tex2: '%s'", model.texs[0].c_str(), model.texs[1].c_str());
 
 	textureHandlerS3O.PreloadTexture(
 		&model,
-		optionalModelParams.flipTextures.value_or(false),
-		optionalModelParams.invertTeamColor.value_or(false)
+		optionalModelProperties.flipTextures.value_or(false),
+		optionalModelProperties.invertTeamColor.value_or(false)
 	);
 
 	model.name = modelFilePath;
 	model.type = MODELTYPE_ASS; // Revise?
 	model.numPieces = 0;
-	model.mins = DEF_MIN_SIZE;
-	model.maxs = DEF_MAX_SIZE;
 
 	const auto initTransform = Transform{};
 
@@ -528,11 +527,13 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 			Skinning::ReparentMeshesTrianglesToBones(&model, allSkinnedMeshes);
 	}
 
-	if (optionalModelParams.s3oCompat.value_or(false))
+	//optionalModelProperties.s3oCompat = true;
+	if (optionalModelProperties.s3oCompat.value_or(false))
 		Impl::FlipCoordSystemHandedness(model);
 
+	model.SetPieceMatrices();
 	// will also calculate pieces / model bounding box
-	ModelUtils::ApplyModelProperties(&model, optionalModelParams);
+	ModelUtils::ApplyModelProperties(&model, optionalModelProperties);
 
 	ModelLog::LogModelProperties(model);
 }
@@ -564,15 +565,7 @@ GLTFPiece* CGLTFParser::AllocRootEmptyPiece(S3DModel* model, const Transform& pa
 	model->numPieces++;
 
 	piece->SetParentModel(model);
-
-	auto bakedTransform = parentTransform;
-	// only rotation is allowed because of Spring-isms
-	bakedTransform.t = float3{};
-	bakedTransform.s = 1.0f;
-	piece->SetBakedTransform(bakedTransform); // bakedRotAngles are not read or supported for GLTF
-	piece->offset = parentTransform.t;
-	piece->scale = parentTransform.s;
-
+	piece->SetBakedTransform(parentTransform);
 
 	piece->parent = nullptr;
 	piece->name = scene.name;
@@ -606,16 +599,7 @@ GLTFPiece* CGLTFParser::LoadPiece(S3DModel* model, GLTFPiece* parentPiece, const
 	piece->nodeIndex = nodeIndex;
 
 	Transform pieceTransform = Impl::GetNodeTransform(node);
-	
-	auto bakedTransform = pieceTransform;
-	// by idiotic Spring convention bakedTransform should only contain rotation
-	bakedTransform.t = float3{};
-	bakedTransform.s = 1.0f;
-
-	piece->SetBakedTransform(bakedTransform); // bakedRotAngles are not read or supported for GLTF
-	piece->offset = pieceTransform.t;
-	piece->scale = pieceTransform.s;
-	piece->goffset = piece->offset + ((parentPiece != nullptr) ? parentPiece->goffset : ZeroVector);
+	piece->SetBakedTransform(pieceTransform);
 
 	for (const auto childNodeIndex : node.children) {
 		auto* childPiece = LoadPiece(model, piece, asset, childNodeIndex);
