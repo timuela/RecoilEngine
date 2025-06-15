@@ -255,11 +255,13 @@ void S3DModelPiece::SetPieceTransform(const Transform& parentTra)
 
 Transform S3DModelPiece::ComposeTransform(const float3& t, const float3& r, float s) const
 {
-	return Transform{
-		CQuaternion::FromEulerYPRNeg(-r),
-		t,
-		s
-	} + bakedTransform;
+	float3 adjRot = float3{
+		std::copysignf(r.x, model->eulerRotSigns[0] ? -1.0f : 1.0f),
+		std::copysignf(r.y, model->eulerRotSigns[1] ? -1.0f : 1.0f),
+		std::copysignf(r.z, model->eulerRotSigns[2] ? -1.0f : 1.0f)
+	};
+
+	return bakedTransform + Transform(CQuaternion::FromEulerYPR(adjRot), t, s);
 }
 
 

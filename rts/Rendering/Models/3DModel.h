@@ -9,6 +9,7 @@
 #include <string>
 #include <limits>
 #include <type_traits>
+#include <bitset>
 
 #include "ModelsMemStorage.h"
 #include "Lua/LuaObjectMaterial.h"
@@ -282,6 +283,7 @@ struct S3DModel
 
 		, loadStatus(NOTLOADED)
 		, uploaded(false)
+		, eulerRotSigns{true}
 
 		, traAlloc(ScopedTransformMemAlloc())
 	{}
@@ -316,6 +318,7 @@ struct S3DModel
 
 		loadStatus = m.loadStatus;
 		uploaded = m.uploaded;
+		eulerRotSigns = m.eulerRotSigns;
 
 		std::swap(traAlloc, m.traAlloc);
 
@@ -380,6 +383,7 @@ public:
 
 	LoadStatus loadStatus;
 	bool uploaded;
+	std::bitset<3> eulerRotSigns;
 private:
 	ScopedTransformMemAlloc traAlloc;
 };

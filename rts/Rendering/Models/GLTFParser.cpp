@@ -350,7 +350,7 @@ namespace Impl {
 					indVec[i + 2]
 				);
 			}
-			//piece->offset.x = -piece->offset.x;
+			piece->bakedTransform.t.x = -piece->bakedTransform.t.x;
 		}
 	}
 }
@@ -458,7 +458,12 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 	model.type = MODELTYPE_ASS; // Revise?
 	model.numPieces = 0;
 
-	const auto initTransform = Transform{};
+	// TODO: Remove
+	optionalModelProperties.s3oCompat = true;
+
+	const auto initTransform = optionalModelProperties.s3oCompat.value_or(false) ?
+		Transform(CQuaternion(0, 1, 0, 0)) :
+		Transform(CQuaternion(0, 0, 0, 1));
 
 	const auto defaultSceneIdx = asset.defaultScene.value_or(0);
 
@@ -527,9 +532,12 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 			Skinning::ReparentMeshesTrianglesToBones(&model, allSkinnedMeshes);
 	}
 
-	//optionalModelProperties.s3oCompat = true;
-	if (optionalModelProperties.s3oCompat.value_or(false))
-		Impl::FlipCoordSystemHandedness(model);
+
+	//if (optionalModelProperties.s3oCompat.value_or(false))
+	//	Impl::FlipCoordSystemHandedness(model);
+	if (optionalModelProperties.s3oCompat.value_or(false)) {
+		model.eulerRotSigns = 0b100;
+	}
 
 	model.SetPieceMatrices();
 	// will also calculate pieces / model bounding box
