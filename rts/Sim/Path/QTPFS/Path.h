@@ -391,6 +391,9 @@ namespace QTPFS {
 			SetSynced(false); // Mark this path as unsynced explicitly
 		}
 	};
+
+	// Used by the search system to avoid clashes with other engine systems.
+	struct SearchModeIPath : public IPath {};
 }
 
 #endif
