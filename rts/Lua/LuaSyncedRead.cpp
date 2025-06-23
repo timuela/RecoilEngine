@@ -8285,7 +8285,7 @@ int LuaSyncedRead::IsUnitInJammer(lua_State* L)
  *
  * @function Spring.IsFeatureInLos
  * @param featureID integer
- * @param allyTeamID integer
+ * @param allyTeamID integer? Defaults to the current `allyTeamID`.
  * @return boolean inLos
  */
 int LuaSyncedRead::IsFeatureInLos(lua_State* L)
