@@ -223,8 +223,6 @@ class LuaSyncedRead {
 		static int GetFeatureRulesParam(lua_State* L);
 		static int GetFeatureRulesParams(lua_State* L);
 
-		static int IsFeatureVisible(lua_State* L);
-
 		static int GetProjectilePosition(lua_State* L);
 		static int GetProjectileDirection(lua_State* L);
 		static int GetProjectileVelocity(lua_State* L);
@@ -267,6 +265,7 @@ class LuaSyncedRead {
 		static int IsUnitInAirLos(lua_State* L);
 		static int IsUnitInRadar(lua_State* L);
 		static int IsUnitInJammer(lua_State* L);
+		static int IsFeatureInLos(lua_State* L);
 		static int GetClosestValidPosition(lua_State* L);
 
 		static int GetModelRootPiece(lua_State* L);

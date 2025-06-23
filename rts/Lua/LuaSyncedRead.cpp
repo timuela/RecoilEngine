@@ -316,8 +316,6 @@ bool LuaSyncedRead::PushEntries(lua_State* L)
 	REGISTER_LUA_CFUNC(GetFeatureRulesParam);
 	REGISTER_LUA_CFUNC(GetFeatureRulesParams);
 
-	REGISTER_LUA_CFUNC(IsFeatureVisible);
-
 	REGISTER_LUA_CFUNC(GetProjectilePosition);
 	REGISTER_LUA_CFUNC(GetProjectileDirection);
 	REGISTER_LUA_CFUNC(GetProjectileVelocity);
@@ -360,6 +358,7 @@ bool LuaSyncedRead::PushEntries(lua_State* L)
 	REGISTER_LUA_CFUNC(IsUnitInAirLos);
 	REGISTER_LUA_CFUNC(IsUnitInRadar);
 	REGISTER_LUA_CFUNC(IsUnitInJammer);
+	REGISTER_LUA_CFUNC(IsFeatureInLos);
 	REGISTER_LUA_CFUNC(GetClosestValidPosition);
 
 	REGISTER_LUA_CFUNC(GetModelRootPiece);
@@ -1129,19 +1128,6 @@ int LuaSyncedRead::GetFeatureRulesParams(lua_State* L)
 	const LuaRulesParams::Params&  params = feature->modParams;
 
 	return PushRulesParams(L, __func__, params, losMask);
-}
-
-/***
- *
- * @function Spring.IsFeatureVisible
- * @param featureID integer
- * @return boolean visible
- */
-int LuaSyncedRead::IsFeatureVisible(lua_State* L)
-{
-	const CFeature* feature = ParseFeature(L, __func__, 1);
-	lua_pushboolean(L, feature != nullptr && LuaUtils::IsFeatureVisible(L, feature));
-	return 1;
 }
 
 
@@ -8293,6 +8279,34 @@ int LuaSyncedRead::IsUnitInJammer(lua_State* L)
 
 	lua_pushboolean(L, losHandler->InJammer(unit, allyTeamID)); //FIXME
 	return 1;
+}
+
+/***
+ *
+ * @function Spring.IsFeatureInLos
+ * @param featureID integer
+ * @param allyTeamID integer
+ * @return boolean inLos
+ */
+int LuaSyncedRead::IsFeatureInLos(lua_State* L)
+{
+	const auto feature = ParseFeature(L, __func__, 1);
+	const auto allyTeamID = GetEffectiveLosAllyTeam(L, 2);
+
+	if (feature == nullptr)
+		return 0;
+
+	switch (allyTeamID) {
+	case CEventClient::NoAccessTeam:
+		lua_pushboolean(L, false);
+		return 1;
+	case CEventClient::AllAccessTeam:
+		lua_pushboolean(L, true);
+		return 1;
+	default:
+		lua_pushboolean(L, feature->IsInLosForAllyTeam(allyTeamID)); // FIXME: this func should ideally handle No/All access teams
+		return 1;
+	}
 }
 
 

@@ -126,7 +126,7 @@ void CFeature::ChangeTeam(int newTeam)
 bool CFeature::IsInLosForAllyTeam(int argAllyTeam) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (alwaysVisible || argAllyTeam == -1)
+	if (alwaysVisible || argAllyTeam == -1) // FIXME: -1 is NoAccessTeam, AllAccessTeam is -2. I think it's because features are/were in a fake -1 allyteam
 		return true;
 
 	const bool isGaia = allyteam == std::max(0, teamHandler.GaiaAllyTeamID());
