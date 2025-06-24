@@ -990,7 +990,7 @@ int LuaShaders::GetUniformLocation(lua_State* L)
  * @function gl.GetSubroutineIndex
  *
  * @param shaderID integer
- * @param shaderType integer
+ * @param shaderType GL.ShaderType
  * @param name string
  * @return GL locationID
  */
@@ -1309,7 +1309,7 @@ int LuaShaders::UniformMatrix(lua_State* L)
  *
  * @function gl.UniformSubroutine
  * @see https://registry.khronos.org/OpenGL-Refpages/gl4/html/glUniformSubroutines.xhtml
- * @param shaderType integer
+ * @param shaderType GL.ShaderType
  * @param index integer
  */
 int LuaShaders::UniformSubroutine(lua_State* L)
