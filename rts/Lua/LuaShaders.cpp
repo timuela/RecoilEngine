@@ -1356,8 +1356,6 @@ int LuaShaders::GetEngineUniformBufferDef(lua_State* L)
 /*** Get GLSL definition for model uniform data
  *
  * @function gl.GetEngineModelUniformDataDef
- *
- * @param index number
  * @return string glslDefinition the GLSL compliant definition of ModelUniformData structure (per Unit/Feature buffer available on GPU)
  */
 int LuaShaders::GetEngineModelUniformDataDef(lua_State* L)
