@@ -1112,10 +1112,9 @@ int LuaShaders::Uniform(lua_State* L)
 
 /*** Set uniform value (int) for active shader.
  *
- * @function gl.UniformInt
- *
  * Shader must be activated before setting uniforms.
  *
+ * @function gl.UniformInt
  * @param locationID integer|string uniformName
  * @param int1 integer
  * @param int2 integer?
