@@ -963,10 +963,13 @@ int LuaShaders::GetActiveUniforms(lua_State* L)
 
 /*** Get location for a shaders uniform.
  *
- * Needed for changing uniform values with function `gl.Uniform`.
+ * Use it to get the location of the uniform, the location is required to use one of the `gl.Uniform*` functions.
  *
- * @function gl.GetUniformLocation
  * @see gl.Uniform
+ * @see gl.UniformInt
+ * @see gl.UniformArray
+ * @see gl.UniformMatrix
+ * @function gl.GetUniformLocation
  * @param shaderID integer
  * @param name string
  * @return GL locationID
@@ -1042,12 +1045,14 @@ namespace {
 	}
 }
 
-/*** Set uniforms for a unit buffer.
+/*** Set uniforms for a unit.
+ *
+ * Sets only the user defined part of per unit uniforms in the buffer.
  *
  * @function gl.SetUnitBufferUniforms
  *
  * @param unitID integer
- * @param values number[]
+ * @param values [float4, float4, float4, float4]
  * @param offset integer (Default: 0) lower or equal to 0, if negative 0 will be used
  * @return number size how many uniforms were set
  */
@@ -1055,10 +1060,12 @@ int LuaShaders::SetUnitBufferUniforms(lua_State* L) { return SetObjectBufferUnif
 
 /*** Set uniforms for a feature buffer.
  *
+ * Sets only the user defined part of per feature uniforms in the buffer.
+ *
  * @function gl.SetFeatureBufferUniforms
  *
  * @param featureID integer
- * @param values number[]
+ * @param values [float4, float4, float4, float4]
  * @param offset integer (Default: 0) lower or equal to 0, if negative 0 will be used
  * @return number size how many uniforms were set
  */
@@ -1073,6 +1080,9 @@ int LuaShaders::SetFeatureBufferUniforms(lua_State* L) { return SetObjectBufferU
  *
  * Shader must be activated before setting uniforms.
  *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
  * @function gl.Uniform
  * @param locationID GL|string uniformName
  * @param f1 number
@@ -1114,6 +1124,9 @@ int LuaShaders::Uniform(lua_State* L)
  *
  * Shader must be activated before setting uniforms.
  *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
  * @function gl.UniformInt
  * @param locationID integer|string uniformName
  * @param int1 integer
@@ -1184,6 +1197,9 @@ static bool GLUniformArray(lua_State* L, UniformFunc uf, ParseArrayFunc pf)
  *
  * Shader must be activated before setting uniforms.
  *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
  * @function gl.UniformArray
  * @param locationID integer|string uniformName
  * @param type UniformArrayType
@@ -1231,6 +1247,9 @@ int LuaShaders::UniformArray(lua_State* L)
  *
  * Shader must be activated before setting uniforms.
  *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
  * @function gl.UniformMatrix
  * @param locationID integer|string uniformName
  * @param matrix MatrixName Name of common matrix.
@@ -1240,6 +1259,9 @@ int LuaShaders::UniformArray(lua_State* L)
  * 
  * Shader must be activated before setting uniforms.
  *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
  * @function gl.UniformMatrix
  * @param locationID integer|string uniformName
  * @param ... number Matrix values, pass 4, 9 or 16 values for 2x2, 3x3 or 4x4 matrices respectively.
