@@ -198,10 +198,7 @@ bool LuaShaders::DeleteProgram(Program& p)
 /*** Get the shader compilation error log.
  *
  * @function gl.GetShaderLog
- *
- * This is empty if the shader linking failed, in that case, check your in/out blocks and ensure they match.
- *
- * @return string infoLog
+ * @return string infoLog empty if the shader linking failed, in that case, check your in/out blocks and ensure they match.
  */
 int LuaShaders::GetShaderLog(lua_State* L)
 {
