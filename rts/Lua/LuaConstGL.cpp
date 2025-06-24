@@ -392,10 +392,13 @@ bool LuaConstGL::PushEntries(lua_State* L)
 	/*** @field GL.QUADRATIC_ATTENUATION integer */
 	PUSH_GL(QUADRATIC_ATTENUATION);
 
-	/***
-	 * Shader Types
-	 * @section shadertypes
-	 */
+	/*** @alias GL.ShaderType
+	  * | GL.VERTEX_SHADER
+	  * | GL.TESS_CONTROL_SHADER
+	  * | GL.TESS_EVALUATION_SHADER
+	  * | GL.GEOMETRY_SHADER_EXT
+	  * | GL.FRAGMENT_SHADER
+	  */
 
 	/*** @field GL.VERTEX_SHADER integer */
 	PUSH_GL(VERTEX_SHADER);
