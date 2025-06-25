@@ -195,10 +195,19 @@ bool LuaShaders::DeleteProgram(Program& p)
 /******************************************************************************/
 /******************************************************************************/
 
-/*** Get the shader compilation error log.
+/*** Get last shader compilation log.
+ *
+ * Only refers to the result of the last `gl.CreateShader` call.
  *
  * @function gl.GetShaderLog
- * @return string infoLog empty if the shader linking failed, in that case, check your in/out blocks and ensure they match.
+ * @see https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGetShaderInfoLog.xhtml
+ * @see gl.CreateShader
+ * @return string infoLog
+ *
+ * When successful, contains the result of glGetShaderInfoLog, otherwise an
+ * error message from the engine.
+ *
+ * Empty at initialization (before any shader has been created).
  */
 int LuaShaders::GetShaderLog(lua_State* L)
 {
@@ -282,6 +291,42 @@ namespace {
 		}
 	}
 
+	/*** @alias gl.UniformParamValue nil|number|number[]|Matrix4x4|Matrix3x3|Matrix2x2 */
+
+	/***
+	 * A table of uniform name to value.
+	 *
+	 * The Uniforms are the values you send along with the shader-program. To use
+	 * them in the shader-program declare them like this: `uniform float frame;`
+	 *
+	 * The engine will parse what type the uniform has been declared with in the
+	 * program and attempt to set accordingly.
+	 *
+	 * If the value is nil, the uniform is ignored.
+	 *
+	 * Example:
+	 *
+	 *     A shader initialized with the following content.
+	 *
+	 *     ```glsl
+	 *     // shader
+	 *     uniform vec4 teamColor;
+	 *     uniform int teamCount;
+	 *     uniform mat2 some2drot;
+	 *     ```
+	 *
+	 *     Expects to receive a table like so for a parameter of this type:
+	 *
+	 *     ```lua
+	 *     {
+	 *       teamColor = {255, 255, 255, 255},
+	 *       teamCount = 4,
+	 *       some2drot = {1.0, 0, 1.0, 0}
+	 *     }
+	 *     ```
+	 *
+	 * @class gl.UniformParam : { [string]: gl.UniformParamValue }
+	 */
 	static bool ParseUniformsTable(
 		lua_State* L,
 		int index,
@@ -390,6 +435,10 @@ namespace {
 		return currentProgram;
 	}
 
+	// Allows setting up uniforms when drawing is disabled
+	// (much more convenient for sampler uniforms, and static configuration
+	// values)
+	// needs to be called before validation
 	static bool ParseUniformSetupTables(lua_State* L, int index, const LuaShaders::Program& p)
 	{
 		bool ret = true;
@@ -549,79 +598,18 @@ GLint LuaShaders::GetUniformLocation(LuaShaders::Program* p, const char* name)
 	return iter->second.location;
 }
 
-/***
- * A table of uniform name to value.
+// Fields documented in the body of `CreateShader`
+/*** Parameters for shader creation
  *
- * The Uniforms are the values you send along with the shader-program. To use
- * them in the shader-program declare them like this: `uniform float frame;`
+ * @class gl.ShaderParams
  *
- * Specify a Lua array to initialize GLSL arrays.
- *
- * The engine will automatically fill in an appropriately named uniform for team
- * colour if it is declared;
- *
- * ```glsl
- * uniform vec4 teamColor;
- * ```
- *
- * @class UniformParam<T> : { [string]: T|T[] }
- */
-
-/***
- * @class ShaderParams
- *
- * @field vertex string?
- *
- * The "Vertex" or vertex-shader is your GLSL-Code as string, its written in a
- * C-Dialect.  This shader is busy deforming the geometry of a unit but it can
- * not create new polygons. Use it for waves, wobbling surfaces etc.
- *
- * @field tcs string?
- *
- * The "TCS" or Tesselation Control Shader controls how much tessellation a
- * particular patch gets; it also defines the size of a patch, thus allowing it
- * to augment data. It can also filter vertex data taken from the vertex shader.
- * The main purpose of the TCS is to feed the tessellation levels to the
- * Tessellation primitive generator stage, as well as to feed patch data (as its
- * output values) to the Tessellation Evaluation Shader stage.
- *
- * @field tes string?
- *
- * The "TES" or Tesselation Evaluation Shader takes the abstract patch generated
- * by the tessellation primitive generation stage, as well as the actual vertex
- * data for the entire patch, and generates a particular vertex from it. Each
- * TES invocation generates a single vertex. It can also take per-patch data
- * provided by the Tessellation Control Shader.
- *
- * @field geometry string?
- *
- * The "Geometry" or Geometry-shader can create new vertices and vertice-stripes
- * from points.
- *
- * @field fragment string?
- *
- * The "Fragment" or Fragment-shader (sometimes called pixel-Shader) is post
- * processing the already rendered picture (for example drawing stars on the
- * sky).
- *
- * Remember textures are not always 2 dimensional pictures. They can contain
- * information about the depth, or the third value marks areas and the strength
- * at which these are processed.
- *
- * @field uniform UniformParam<number>?
- * @field uniformInt UniformParam<integer>?
- * @field uniformFloat UniformParam<number>?
- * @field uniformMatrix UniformParam<number>?
- * @field geoInputType integer? inType
- * @field geoOutputType integer? outType
- * @field geoOutputVerts integer? maxVerts
- * @field definitions string? string of shader #defines"
+ * @see https://registry.khronos.org/OpenGL/extensions/EXT/EXT_geometry_shader4.txt
  */
 
 /*** Create a shader.
  *
  * @function gl.CreateShader
- * @param shaderParams ShaderParams
+ * @param shaderParams gl.ShaderParams
  * @return integer shaderID
  */
 int LuaShaders::CreateShader(lua_State* L)
@@ -639,20 +627,68 @@ int LuaShaders::CreateShader(lua_State* L)
 	std::vector<std::string> fragSrcs;
 	std::vector<std::string> compSrcs;
 
+	/*** @alias gl.ShaderParamsSrcs string|string[]|nil */
+
+	// FIXME: Decide whether to document this (maybe set @deprecated?, anyone
+	// uses?) or get rid of it
 	ParseShaderTable(L, 1, "defines", shdrDefs);
+
+	/*** @field gl.ShaderParams.definitions gl.ShaderParamsSrcs string of shader #defines" */
 	ParseShaderTable(L, 1, "definitions", shdrDefs);
 
-	if (!ParseShaderTable(L, 1,   "vertex", vertSrcs))
+	/*** @field gl.ShaderParams.vertex gl.ShaderParamsSrcs
+	 *
+	 * The "Vertex" or vertex-shader is your GLSL-Code as string, its written in a
+	 * C-Dialect.  This shader is busy deforming the geometry of a unit but it can
+	 * not create new polygons. Use it for waves, wobbling surfaces etc. */
+	if (!ParseShaderTable(L, 1, "vertex", vertSrcs))
 		return 0;
-	if (!ParseShaderTable(L, 1,      "tcs",  tcsSrcs))
+
+	/*** @field gl.ShaderParams.tcs gl.ShaderParamsSrcs
+	 *
+	 * The "TCS" or Tesselation Control Shader controls how much tessellation a
+	 * particular patch gets; it also defines the size of a patch, thus allowing
+	 * it to augment data. It can also filter vertex data taken from the vertex
+	 * shader. The main purpose of the TCS is to feed the tessellation levels to
+	 * the Tessellation primitive generator stage, as well as to feed patch data
+	 * (as its output values) to the Tessellation Evaluation Shader stage. */
+	if (!ParseShaderTable(L, 1, "tcs", tcsSrcs))
 		return 0;
-	if (!ParseShaderTable(L, 1,      "tes",  tesSrcs))
+
+	/*** @field gl.ShaderParams.tes gl.ShaderParamsSrcs
+	 *
+	 * The "TES" or Tesselation Evaluation Shader takes the abstract patch
+	 * generated by the tessellation primitive generation stage, as well as the
+	 * actual vertex data for the entire patch, and generates a particular vertex
+	 * from it. Each TES invocation generates a single vertex. It can also take
+	 * per-patch data provided by the Tessellation Control Shader. */
+	if (!ParseShaderTable(L, 1, "tes", tesSrcs))
 		return 0;
+
+	/*** @field gl.ShaderParams.geometry gl.ShaderParamsSrcs
+	 *
+	 * The "Geometry" or Geometry-shader can create new vertices and
+	 * vertice-stripes from points. */
 	if (!ParseShaderTable(L, 1, "geometry", geomSrcs))
 		return 0;
+
+	/*** @field gl.ShaderParams.fragment gl.ShaderParamsSrcs
+	*
+	* The "Fragment" or Fragment-shader (sometimes called pixel-Shader) is post
+	* processing the already rendered picture (for example drawing stars on the
+	* sky).
+	*
+	* Remember textures are not always 2 dimensional pictures. They can contain
+	* information about the depth, or the third value marks areas and the strength
+	* at which these are processed. */
 	if (!ParseShaderTable(L, 1, "fragment", fragSrcs))
 		return 0;
 
+	/*** @field gl.ShaderParams.compute gl.ShaderParamsSrcs
+	 *
+	 * If provided, none of `vertex`, `fragment`, `tcs`, `tes`, `geometry` can be
+	 * present and vice-versa.
+	 */
 	if (!ParseShaderTable(L, 1, "compute", compSrcs))
 		return 0;
 
@@ -729,6 +765,27 @@ int LuaShaders::CreateShader(lua_State* L)
 		p.objects.emplace_back(tesObj, GL_TESS_EVALUATION_SHADER);
 	}
 
+	/***
+	* @field gl.ShaderParams.geoInputType integer?|GL.GeometryInputTypePrimitives
+	*
+	* Only used when `geometry` is passed.
+	*
+	* See section 2.16.1 of the reference for EXT_geometry_shader4.
+	*
+	* Only used when `geometry` is passed. Ignored when nil.
+	*
+	* @field gl.ShaderParams.geoOutputType GL.GeometryOutputTypePrimitives?
+	*
+	* See section 2.16.2 of the reference for EXT_geometry_shader4
+	*
+	* Only used when `geometry` is passed. Ignored when nil.
+	*
+	* @field gl.ShaderParams.geoOutputVerts integer?
+	*
+	* Maximum number of vertices the geometry shader will emit in one invocation.
+	*
+	* Only used when `geometry` is passed. Ignored when nil.
+	*/
 	if (geomObj != 0) {
 		glAttachShader(prog, geomObj);
 		p.objects.emplace_back(geomObj, GL_GEOMETRY_SHADER);
@@ -754,10 +811,17 @@ int LuaShaders::CreateShader(lua_State* L)
 	// Parse active uniforms and locations
 	GLint currentProgram = FillActiveUniforms(p);
 
-	// Allows setting up uniforms when drawing is disabled
-	// (much more convenient for sampler uniforms, and static
-	//  configuration values)
-	// needs to be called before validation
+	// FIXME: fields `uniform{Int,Float,Matrix}` parsed below via
+	// ParseUniformSetupTables below are redundant, we reflect on the shader
+	// program and ignore whatever was the field name anyway.
+	// Consider whether we should deprecate them and just use `uniform`.
+
+	/***
+	* @field gl.ShaderParams.uniform UniformParam?
+	* @field gl.ShaderParams.uniformInt UniformParam?
+	* @field gl.ShaderParams.uniformFloat UniformParam?
+	* @field gl.ShaderParams.uniformMatrix UniformParam?
+	*/
 	ParseUniformSetupTables(L, 1, p);
 
 	glUseProgram(currentProgram);
@@ -1052,20 +1116,20 @@ namespace {
  * @function gl.SetUnitBufferUniforms
  *
  * @param unitID integer
- * @param values [float4, float4, float4, float4]
+ * @param values Matrix4x4
  * @param offset integer (Default: 0) lower or equal to 0, if negative 0 will be used
  * @return number size how many uniforms were set
  */
 int LuaShaders::SetUnitBufferUniforms(lua_State* L) { return SetObjectBufferUniforms<CUnit>(L, __func__); }
 
-/*** Set uniforms for a feature buffer.
+/*** Set uniforms for a feature.
  *
  * Sets only the user defined part of per feature uniforms in the buffer.
  *
  * @function gl.SetFeatureBufferUniforms
  *
  * @param featureID integer
- * @param values [float4, float4, float4, float4]
+ * @param values Matrix4x4
  * @param offset integer (Default: 0) lower or equal to 0, if negative 0 will be used
  * @return number size how many uniforms were set
  */
@@ -1076,6 +1140,24 @@ int LuaShaders::SetFeatureBufferUniforms(lua_State* L) { return SetObjectBufferU
 /******************************************************************************/
 /******************************************************************************/
 
+// NOTE: gl.UniformFloat pushed via REGISTER_NAMED_LUA_CFUNC as a copy of
+// gl.Uniform. Do we really want redundant callouts?
+
+/*** Set uniform value (float) for active shader.
+ *
+ * Shader must be activated before setting uniforms.
+ *
+ * Use `gl.GetUniformLocation` to get the `locationID`.
+ *
+ * @see gl.GetUniformLocation
+ * @function gl.UniformFloat
+ * @param locationID integer|string uniform name or locationID
+ * @param f1 number
+ * @param f2 number?
+ * @param f3 number?
+ * @param f4 number?
+ */
+
 /*** Set uniform value (float) for active shader.
  *
  * Shader must be activated before setting uniforms.
@@ -1084,7 +1166,7 @@ int LuaShaders::SetFeatureBufferUniforms(lua_State* L) { return SetObjectBufferU
  *
  * @see gl.GetUniformLocation
  * @function gl.Uniform
- * @param locationID GL|string uniformName
+ * @param locationID integer|string uniform name or locationID
  * @param f1 number
  * @param f2 number?
  * @param f3 number?
@@ -1128,7 +1210,7 @@ int LuaShaders::Uniform(lua_State* L)
  *
  * @see gl.GetUniformLocation
  * @function gl.UniformInt
- * @param locationID integer|string uniformName
+ * @param locationID integer|string uniform name or locationID
  * @param int1 integer
  * @param int2 integer?
  * @param int3 integer?
@@ -1201,7 +1283,7 @@ static bool GLUniformArray(lua_State* L, UniformFunc uf, ParseArrayFunc pf)
  *
  * @see gl.GetUniformLocation
  * @function gl.UniformArray
- * @param locationID integer|string uniformName
+ * @param locationID integer|string uniform name or locationID
  * @param type UniformArrayType
  * @param uniforms number[] Array up to 1024 elements
  */
@@ -1391,10 +1473,10 @@ int LuaShaders::GetEngineModelUniformDataDef(lua_State* L)
 
 /*** Set Geometry shader parameters.
  *
- * Needed by geometry shader programs (check the opengl
- * GL_ARB_geometry_shader4 extension for glProgramParameteri)
+ * Needed by geometry shader programs
  *
  * @function gl.SetGeometryShaderParameter
+ * @see https://registry.khronos.org/OpenGL/extensions/ARB/ARB_geometry_shader4.txt
  * @param shaderID integer
  * @param param number
  * @param number number
@@ -1422,10 +1504,10 @@ int LuaShaders::SetGeometryShaderParameter(lua_State* L)
 
 /*** Set tesselation shader parameters.
  *
- * Needed by tesselation shader programs. (Check the opengl
- * `GL_ARB_tessellation_shader` extension for `glProgramParameteri`).
+ * Needed by tesselation shader programs.
  *
  * @function gl.SetTesselationShaderParameter
+ * @see https://registry.khronos.org/OpenGL/extensions/ARB/ARB_tessellation_shader.txt
  * @param param integer
  * @param value integer
  * @return nil
