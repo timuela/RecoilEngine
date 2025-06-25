@@ -426,8 +426,8 @@ bool LuaConstGL::PushEntries(lua_State* L)
 	PUSH_GL(TESS_CONTROL_SHADER);
 	/*** @field GL.TESS_EVALUATION_SHADER integer */
 	PUSH_GL(TESS_EVALUATION_SHADER);
-	/*** @field GL.GEOMETRY_SHADER_EXT integer */
-	PUSH_GL(GEOMETRY_SHADER_EXT);
+	/*** @field GL.GEOMETRY_SHADER integer */
+	PUSH_GL(GEOMETRY_SHADER);
 	/*** @field GL.FRAGMENT_SHADER integer */
 	PUSH_GL(FRAGMENT_SHADER);
 

@@ -817,10 +817,10 @@ int LuaShaders::CreateShader(lua_State* L)
 	// Consider whether we should deprecate them and just use `uniform`.
 
 	/***
-	* @field gl.ShaderParams.uniform UniformParam?
-	* @field gl.ShaderParams.uniformInt UniformParam?
-	* @field gl.ShaderParams.uniformFloat UniformParam?
-	* @field gl.ShaderParams.uniformMatrix UniformParam?
+	* @field gl.ShaderParams.uniform gl.UniformParam?
+	* @field gl.ShaderParams.uniformInt gl.UniformParam?
+	* @field gl.ShaderParams.uniformFloat gl.UniformParam?
+	* @field gl.ShaderParams.uniformMatrix gl.UniformParam?
 	*/
 	ParseUniformSetupTables(L, 1, p);
 

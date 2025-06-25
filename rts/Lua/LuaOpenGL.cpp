@@ -6430,7 +6430,7 @@ int LuaOpenGL::ReadPixels(lua_State* L)
  * @param width integer
  * @param height integer
  * @param filename string
- * @param options SaveImageOptions?
+ * @param options gl.SaveImageOptions?
  * @return boolean? success
  */
 int LuaOpenGL::SaveImage(lua_State* L)
