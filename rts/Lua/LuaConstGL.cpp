@@ -194,6 +194,9 @@ bool LuaConstGL::PushEntries(lua_State* L)
 	/*** @field GL.SMOOTH integer */
 	PUSH_GL(SMOOTH);
 
+	/* NOTE: GL.MatrixMode supported but not exposed?
+	 * | GL.COLOR
+	 */
 	/*** @alias GL.MatrixMode
 	  * | GL.MODELVIEW
 	  * | GL.PROJECTION

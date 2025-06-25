@@ -6412,14 +6412,14 @@ int LuaOpenGL::ReadPixels(lua_State* L)
 
 
 /***
+ *
  * @class gl.SaveImageOptions
- * @see https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glReadBuffer.xml
  * @field alpha boolean (Default: `false`)
  * @field yflip boolean (Default: `true`)
  * @field grayscale16bit boolean (Default: `false`)
- * @field readbuffer integer (Default: current read buffer)
+ * @field readbuffer integer (Default: `current_read_buffer`)
  *
- * See reference for possible values
+ * see [reference](https://registry.khronos.org/OpenGL-Refpages/gl2.1/xhtml/glReadBuffer.xml) for possible values
  */
 
 /*** Save the image of a buffer to a file
