@@ -2662,7 +2662,7 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 				// we just inserted a single frame. if we happened to insert it in the expected window +-2ms, then hurry up by 1ms
 				timeFromNextExpectedSimMs = (currentTick - lastSimFrameStartTime).toMilliSecsf();
 
-				float simFramePeriodms =  (1000.0f / GAME_SPEED) / std::clamp(internalSpeed, 0.4f, 2.1f); // Usually 33.3 ms
+				float simFramePeriodms =  (1000.0f / GAME_SPEED) / std::clamp(internalSpeed, 0.4f, 2.1f); // Usually 33.3 ms. The 0.4 and 2.1 are determined empirically
 				// ok very good. Now if our internalSpeed is near 1, then try your absolute best to converge the net messages to the target of  (lastSimFrameStartTime + (1000/GAME_SPEED * internalSpeed) ) = 3ms
 				// this number is positive if we are issuing the sim frame too late
 				// ideally this number is about -2 ms
