@@ -52,13 +52,39 @@ Basic characters:
 | u      | ❌                   | ✅                  | ❌                     | ✅                    | ❌         | ❌        |
 | e      | ❌                   | ⚠️ exit only        | ❌                     | ⚠️ exit only          | ❌         | ❌        |
 
-Others:
+<dl>
+	<dt>Active/Inactive</dt>
+	<dd>
+		Whether <code>YARD_OPEN</code> is true or false (controlled by animation,
+		default false)
+	</dd>
+	<dt>Needs geo</dt>
+	<dd>
+		Whether the unit can only be built on top of terrain marked as geothermal.
+	</dd>
+</dl>
 
-- `h` has a special meaning - it **has to be the first letter and means a high resolution yardmap**,
-  i.e. there have to be 4x more characters and each will correspond to a "regular" 8x8 elmo game square instead of the larger 16x16 elmo footprint square.
-- `w`, `x`, `f`: deprecated, same as `o`.
-- **whitespace is ignored**, which you can use to neatly **arrange the rectangle visually**.
+A few remarks:
+
+- **whitespace is ignored**, which you can use to neatly **arrange the
+  rectangle visually**.
 - anything else is ignored as well but may be used in the future.
+
+#### Additional characters
+
+##### High definition
+
+The character `h` is a special character that, when passed as (and **only valid**
+when) the first letter on a yardmap (e.g. `hyyy..`), marks the yardmap
+definition as high resolution: requires 4x more characters and each will
+correspond to a "regular" 8x8 elmo game square instead of the larger 16x16 elmo
+footprint square.
+
+Does not count as a square.
+
+##### Deprecated
+
+- `w`, `x`, `f`: same as `o`.
 
 ### Typemaps and speed mod classes
 
