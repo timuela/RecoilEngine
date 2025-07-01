@@ -61,6 +61,10 @@ Basic characters:
 	<dt>Needs geo</dt>
 	<dd>
 		Whether the unit can only be built on top of terrain marked as geothermal.
+		Note that this applies to the _whole_ unit, i.e. the geothermal doesn't
+		need to be specifically under that tile! Also, it's sufficient to have a
+		a single geothermal underneath for the unit to be buildable regardless of
+		how many needs-geo tiles there are beyond the first.
 	</dd>
 </dl>
 
