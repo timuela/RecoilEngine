@@ -79,7 +79,7 @@ CONFIG(int, AutohostPort).defaultValue(0).description("Which port should the eng
 CONFIG(int, ServerSleepTime).defaultValue(5).description("Number of milliseconds to sleep per tick for the server thread. Lower values have marginally higher CPU load, while high values can introduce additional latency.");
 CONFIG(int, SpeedControl).defaultValue(1).minimumValue(1).maximumValue(2)
 	.description("Sets how server adjusts speed according to player's load (CPU), 1: use average, 2: use highest");
-CONFIG(int, ServerSyncGameTiming).defaultValue(0).minimumValue(1).maximumValue(33).description("When non-zero Makes the server thread attempt to sync up simframe generation timing in local and demo games with the Games simframe consumption timing. Issues frames ~[ServerSyncGameTiming]ms before consumption, 3ms recommended");
+CONFIG(int, ServerSyncGameTiming).defaultValue(0).minimumValue(1).maximumValue(1000 / GAME_SPEED).description("When non-zero makes the server thread attempt to sync up simframe generation timing in local and demo games with the game's simframe consumption timing. Issues frames ~[ServerSyncGameTiming]ms before consumption, 3ms recommended (determined empirically at 30 FPS)");
 CONFIG(bool, AllowSpectatorJoin).defaultValue(true).dedicatedValue(false).description("allow any unauthenticated clients to join as spectator with any name, name will be prefixed with ~");
 CONFIG(bool, WhiteListAdditionalPlayers).defaultValue(true);
 CONFIG(bool, ServerRecordDemos).defaultValue(false).dedicatedValue(true);
