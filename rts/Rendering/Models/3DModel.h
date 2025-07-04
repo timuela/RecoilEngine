@@ -11,6 +11,7 @@
 #include <type_traits>
 
 #include "ModelsMemStorage.h"
+#include "3DModelAnimation.hpp"
 #include "Lua/LuaObjectMaterial.h"
 #include "Rendering/GL/VBO.h"
 #include "Sim/Misc/CollisionVolume.h"
@@ -303,6 +304,8 @@ struct S3DModel
 		, loadStatus(NOTLOADED)
 		, uploaded(false)
 
+		, animationMap{}
+
 		, traAlloc(ScopedTransformMemAlloc())
 	{}
 
@@ -338,6 +341,8 @@ struct S3DModel
 
 		loadStatus = m.loadStatus;
 		uploaded = m.uploaded;
+
+		animationMap = std::move(m.animationMap);
 
 		std::swap(traAlloc, m.traAlloc);
 
@@ -405,6 +410,8 @@ public:
 
 	LoadStatus loadStatus;
 	bool uploaded;
+
+	ModelAnimation::Map animationMap;
 private:
 	ScopedTransformMemAlloc traAlloc;
 };
