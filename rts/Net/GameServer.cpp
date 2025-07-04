@@ -2602,7 +2602,6 @@ bool CGameServer::HasFinished() const
 {
 	return quitServer;
 }
-
 void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 {
 	ZoneScopedN("CGameServer::CreateNewFrame");
@@ -2656,13 +2655,18 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 		#ifndef HEADLESS
 			// We add our special case, because we want to avoid issueing a new simframe right around lastSimFrameStartTime
 			float timeFromNextExpectedSimMs = (currentTick - lastSimFrameStartTime).toMilliSecsf();
-			timeFromNextExpectedSimMs = timeFromNextExpectedSimMs - (1000.0f / GAME_SPEED) / std::clamp(internalSpeed, 0.45f, 2.1f);
-			if ((numNewFrames == 1) && (serverSyncGameTiming > 0) && (vSync != 0)){
+			float internalSpeedClamped = std::clamp(internalSpeed, 0.8f, 1.25f);
+			timeFromNextExpectedSimMs = timeFromNextExpectedSimMs - (1000.0f / GAME_SPEED) / internalSpeedClamped;
+
+			// If we have a new sim frame and vsync is on, then we want to check if how far we are from the last VBLANK time, and we are running a 
+			// speed that is within 25% of 1.0, then we want to hurry up or slow down the game server, by adding or subtracting a small amount of time from frameTimeLeft.
+			if ((numNewFrames == 1) && (serverSyncGameTiming > 0) && (vSync != 0) && 
+				(internalSpeed > 0.8f) && (internalSpeed < 1.25f)) {
 
 				// we just inserted a single frame. if we happened to insert it in the expected window +-2ms, then hurry up by 1ms
 				timeFromNextExpectedSimMs = (currentTick - lastSimFrameStartTime).toMilliSecsf();
 
-				float simFramePeriodms =  (1000.0f / GAME_SPEED) / std::clamp(internalSpeed, 0.4f, 2.1f); // Usually 33.3 ms. The 0.4 and 2.1 are determined empirically
+				float simFramePeriodms =  (1000.0f / GAME_SPEED) / internalSpeedClamped; // Usually 33.3 ms. The 0.4 and 2.1 are determined empirically
 				// ok very good. Now if our internalSpeed is near 1, then try your absolute best to converge the net messages to the target of  (lastSimFrameStartTime + (1000/GAME_SPEED * internalSpeed) ) = 3ms
 				// this number is positive if we are issuing the sim frame too late
 				// ideally this number is about -2 ms
@@ -2671,20 +2675,22 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 				#ifdef DEBUG_SERVERSYNCGAMETIMING
 					TracyPlot("timeFromNextExpectedSimMs", timeFromNextExpectedSimMs);
 				#endif
-				if (internalSpeed >= 0.45 && internalSpeed <= 2.1){
-
-					if (timeFromNextExpectedSimMs > (desiredSimFrameArrival + 1.0) ) {
-						frameTimeLeft += 2.0 * simFramePeriodms/2000.0f;
-						#ifdef DEBUG_SERVERSYNCGAMETIMING
-							TracyMessageL("Hurrying up Gameserver");
-						#endif
-					}
-					if (timeFromNextExpectedSimMs < (desiredSimFrameArrival - 1.0)) {
-						frameTimeLeft -= simFramePeriodms/2000.0f;
-						#ifdef DEBUG_SERVERSYNCGAMETIMING
-							TracyMessageL("Slowing down Gameserver");
-						#endif
-					}
+		
+				// We are more than 1 millisecond behind from the desired frame time arrival
+				if (timeFromNextExpectedSimMs > (desiredSimFrameArrival + 1.0f) ) {
+					// Add one millisecond to frameTimeLeft, so that we hurry up the game server
+					frameTimeLeft += (simFramePeriodms/1000.0f);
+					#ifdef DEBUG_SERVERSYNCGAMETIMING
+						TracyMessageL("Hurrying up Gameserver");
+					#endif
+				}
+				// We are more than 1 millisecond ahead of the desired frame time arrival
+				if (timeFromNextExpectedSimMs < (desiredSimFrameArrival - 1.0f)) {
+					// Subtract half a millisecond from frameTimeLeft, so that we slow down the game server
+					frameTimeLeft -= (simFramePeriodms/1000.0f)  * 0.5f;
+					#ifdef DEBUG_SERVERSYNCGAMETIMING
+						TracyMessageL("Slowing down Gameserver");
+					#endif
 				}
 
 			}
@@ -2752,10 +2758,7 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 		for (unsigned int i = 0; i < numNewFrames; ++i) {
 			++serverFrameNum;
 
-			#ifdef DEBUG_SERVERSYNCGAMETIME
-				TracyMessageL("CGameServer::CreateNewFrame::NewFrameCreated");
-				ZoneScopedN("CGameServer::CreateNewFrame::NewFrameCreated");
-			#endif
+			ZoneScopedN("CGameServer::CreateNewFrame::NewFrameCreated");
 			
 			// Send out new frame messages.
 			if ((serverFrameNum % serverKeyframeInterval) == 0) {
@@ -2780,7 +2783,6 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 		}
 	}
 }
-
 
 void CGameServer::UpdateSpeedControl(int speedCtrl)
 {
