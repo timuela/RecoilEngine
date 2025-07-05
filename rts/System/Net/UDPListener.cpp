@@ -113,8 +113,8 @@ void UDPListener::Update(int loopSleepTime) {
 		FD_ZERO(&rset);
 		FD_SET(socket->native_handle(), &rset);
 		timeval to = {
-			loopSleepTime / 1000u, 			// long tv_sec
-			(loopSleepTime % 1000u) * 1000u // long tv_usec
+			.tv_sec  = loopSleepTime / 1000u,
+			.tv_usec = (loopSleepTime % 1000u) * 1000u
 		};
 		::select(1, &rset, nullptr, nullptr, &to);
 	}
