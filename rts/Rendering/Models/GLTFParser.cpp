@@ -524,6 +524,11 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 				continue;
 
 			const auto& samplers = animation.samplers[channel.samplerIndex];
+
+			// skip cubic splines if any for now
+			if (samplers.interpolation == fastgltf::AnimationInterpolation::CubicSpline)
+				continue;
+
 			const auto& inputAccessor = asset.accessors[samplers.inputAccessor];
 			const auto& outputAccessor = asset.accessors[samplers.outputAccessor];
 
@@ -561,6 +566,7 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 			}
 		}
 	}
+	model.animationMap.RemoveEmptyAnimations();
 
 	// will also calculate pieces / model bounding box
 	ModelUtils::ApplyModelProperties(&model, optionalModelParams);
