@@ -538,28 +538,28 @@ void CGLTFParser::Load(S3DModel& model, const std::string& modelFilePath)
 				auto& animVectors = model.animationMap.GetPieceAnimationVectors<float3>(animIt, pieceIdxIt->second);
 				fastgltf::iterateAccessorWithIndex<float>(asset, inputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.timeFrames.emplace_back(val);
-					});
+				});
 				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, outputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.values.emplace_back(val.x(), val.y(), val.z());
-					});
+				});
 			} break;
 			case fastgltf::AnimationPath::Rotation: {
 				auto& animVectors = model.animationMap.GetPieceAnimationVectors<CQuaternion>(animIt, pieceIdxIt->second);
 				fastgltf::iterateAccessorWithIndex<float>(asset, inputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.timeFrames.emplace_back(val);
-					});
+				});
 				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(asset, outputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.values.emplace_back(val.x(), val.y(), val.z(), val.w());
-					});
+				});
 			} break;
 			case fastgltf::AnimationPath::Scale: {
 				auto& animVectors = model.animationMap.GetPieceAnimationVectors<float>(animIt, pieceIdxIt->second);
 				fastgltf::iterateAccessorWithIndex<float>(asset, inputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.timeFrames.emplace_back(val);
-					});
+				});
 				fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(asset, outputAccessor, [&](const auto& val, std::size_t idx) {
 					animVectors.values.emplace_back(val.x());
-					});
+				});
 			} break;
 			default:
 				break;

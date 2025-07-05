@@ -2,8 +2,6 @@
 
 #include <algorithm>
 
-#include "System/TemplateUtils.hpp"
-
 void ModelAnimation::Map::RemoveEmptyAnimations()
 {
 	const auto IsEmptySequence = [](ModelAnimation::Sequence& seq) {
