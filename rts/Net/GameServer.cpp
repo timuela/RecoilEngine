@@ -2653,23 +2653,35 @@ void CGameServer::CreateNewFrame(bool fromServerThread, bool fixedFrameTime)
 		frameTimeLeft -= numNewFrames;
 
 		#ifndef HEADLESS
-			// We add our special case, because we want to avoid issueing a new simframe right around lastSimFrameStartTime
+
+			/* When VSync is enabled, we want to ensure that we issue new sim frames just before the next VBLANK, as that is when main game thread checks for new sim frames to execute.  
+			 * So that we can ensure an even and consistent game frame cadence. E.g. ensure for 60 fps, make sure there are 2 draw frames per sim frame. 
+			 * This code below synchronizes the netcode thread with the game thread, so that we can ensure that the netcode thread is ready to send out the next sim frame at the right time.   
+			 * Checking if our game speed is close to the default 1.0 internal speed, because we then assume we want a regular gameframe cadence.
+			 * If the game speed is not close to 1.0, then we are lagging out or catching up, and dont really care about cadence. 
+			 * Specific min/max values chosen empirically. */
+
+			static constexpr float SPEED_CLAMP_MIN = 0.80f;
+			static constexpr float SPEED_CLAMP_MAX = 1.25f;
+			float internalSpeedClamped = std::clamp(internalSpeed, SPEED_CLAMP_MIN, SPEED_CLAMP_MAX);
+
+
 			float timeFromNextExpectedSimMs = (currentTick - lastSimFrameStartTime).toMilliSecsf();
-			float internalSpeedClamped = std::clamp(internalSpeed, 0.8f, 1.25f);
+
 			timeFromNextExpectedSimMs = timeFromNextExpectedSimMs - (1000.0f / GAME_SPEED) / internalSpeedClamped;
 
 			// If we have a new sim frame and vsync is on, then we want to check if how far we are from the last VBLANK time, and we are running a 
 			// speed that is within 25% of 1.0, then we want to hurry up or slow down the game server, by adding or subtracting a small amount of time from frameTimeLeft.
 			if ((numNewFrames == 1) && (serverSyncGameTiming > 0) && (vSync != 0) && 
-				(internalSpeed > 0.8f) && (internalSpeed < 1.25f)) {
+				(internalSpeed == internalSpeedClamped)) {
 
 				// we just inserted a single frame. if we happened to insert it in the expected window +-2ms, then hurry up by 1ms
 				timeFromNextExpectedSimMs = (currentTick - lastSimFrameStartTime).toMilliSecsf();
 
-				float simFramePeriodms =  (1000.0f / GAME_SPEED) / internalSpeedClamped; // Usually 33.3 ms. The 0.4 and 2.1 are determined empirically
-				// ok very good. Now if our internalSpeed is near 1, then try your absolute best to converge the net messages to the target of  (lastSimFrameStartTime + (1000/GAME_SPEED * internalSpeed) ) = 3ms
+				float simFramePeriodms =  (1000.0f / GAME_SPEED) / internalSpeedClamped; // Usually 33.3 ms
+				// ok very good. Now if our internalSpeed is near 1, then try your absolute best to converge the net messages to the target of  (lastSimFrameStartTime + (1000/GAME_SPEED * internalSpeed) ) = serverSyncGameTiming milliseconds
 				// this number is positive if we are issuing the sim frame too late
-				// ideally this number is about -2 ms
+				// ideally this number is about -3 ms
 				float desiredSimFrameArrival = float(serverSyncGameTiming) * -1.0f;
 				timeFromNextExpectedSimMs = timeFromNextExpectedSimMs - simFramePeriodms;
 				#ifdef DEBUG_SERVERSYNCGAMETIMING
