@@ -250,7 +250,7 @@ public:
 
 	float2 GetFootPrint(float scale) const { return {xsize * scale, zsize * scale}; }
 
-	float3 GetDragAccelerationVec(float atmosphericDensity, float waterDensity, float dragCoeff, float frictionCoeff) const;
+	float3 GetDragAccelerationVec(float atmosphericDensity, float waterDensity, float dragCoeff, float frictionCoeff, float myGravity) const;
 	float3 GetWantedUpDir(bool useGroundNormal, bool useObjectNormal, float dirSmoothing) const;
 
 	float GetDrawRadius() const override { return (localModel.GetDrawRadius()); }
