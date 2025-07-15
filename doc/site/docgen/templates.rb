@@ -42,11 +42,12 @@ class Member < OpenStruct
 
     Deprecated<%= ": #{deprecation_reason}" if deprecation_reason %>
     <% end %>
+
     <%= generate_see %>
 
     ```lua
     <%= full_name %>(<%= params.map {|p| p["name"] == "..." ? "[#{p["typ"]}, ]*" : p["typ"] }.join(", ") unless params.empty?
-  %>) -> <% if returns.empty? %>nil<% else %><%= returns.map {|p| p["name"] == "..." ? "[#{p["typ"]}, ]*" : p["typ"] }.join(", ")  %><% end %>
+    %>) -> <% if returns.empty? %>nil<% else %><%= returns.map {|p| p["name"] == "..." ? "[#{p["typ"]}, ]*" : p["typ"] }.join(", ")  %><% end %>
     ```
 
     <% if not params.empty? %>
@@ -55,14 +56,14 @@ class Member < OpenStruct
     <dl class="pl-1 hx-grid hx-gap-2 grid-cols-2">
     <% params.each do |param| %>
     <dt class="col-span-<%= param["short_desc"].nil? ? 1 : 2 %>">
-    <code><%= param["typeref"] %></code><a class="pl-025" href="#<%= param["ref"] %>"><%= param["name"] %></a><span id="<%= param["ref"] %>" class="hx-absolute -hx-mt-20"></span>
+    <code><%= param["typeref"] %></code><span id="<%= param["ref"] %>" class="hx-absolute -hx-mt-20"></span><a class="pl-025" href="#<%= param["ref"] %>"><%= param["name"] %></a>
     </dt>
 
 
     <% if param["short_desc"].nil? %>
     <dd class="col-span-1 ml-05"><%= md(param["summary"], true) %></dd>
     <% else %>
-    <dd class="col-span-2"><%= md(param["description"]) %></dd>
+    <dd class="col-span-2"><%= md(param["desc"]) %></dd>
     <% end %>
     <% end %>
     </dl>
@@ -80,7 +81,7 @@ class Member < OpenStruct
     <% if param["short_desc"].nil? %>
     <dd class="col-span-1 ml-05"><%= md(param["summary"], true) %></dd>
     <% else %>
-    <dd class="col-span-2"><%= md(param["description"]) %></dd>
+    <dd class="col-span-2"><%= md(param["desc"]) %></dd>
     <% end %>
     <% end %>
     </dl>
