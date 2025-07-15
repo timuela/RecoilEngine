@@ -10,7 +10,6 @@ def a(name)
 end
 
 class Member
-  @@other_matcher = Regexp.compile('\@\*(\w+)\*( (.*))?')
   @@refs = Set.new
 
   def self.refs; @@refs; end
@@ -96,7 +95,7 @@ class Member
       end
   end
 
-  @@ref_matcher = Regexp.new("([^`])`([^`]+)`")
+  @@ref_matcher = Regexp.new(%q((\A|[^`])`([^`]+)`))
 
   def self.replace_refs(value)
     return value if not value&.is_a?(String)
