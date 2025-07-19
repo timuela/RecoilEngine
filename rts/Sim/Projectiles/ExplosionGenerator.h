@@ -8,13 +8,16 @@
 
 #include "System/UnorderedMap.hpp"
 #include "System/Threading/SpringThreading.h"
+#include "Game/GameHelper.h"
 
-#define CEG_PREFIX_STRING "custom:"
+static constexpr const char* CEG_PREFIX_STRING = "custom:";
 
 class LuaParser;
 class LuaTable;
 class float3;
 class CUnit;
+class CFeature;
+class CWeapon;
 class IExplosionGenerator;
 struct WeaponDef;
 struct CExplosionParams;
@@ -53,7 +56,7 @@ public:
 		float radius,
 		float gfxMod,
 		CUnit* owner,
-		CUnit* hit,
+		const ExplosionHitObject& hitObject,
 		bool withMutex = false
 	);
 
@@ -87,7 +90,7 @@ public:
 		float radius,
 		float gfxMod,
 		CUnit* owner,
-		CUnit* hit,
+		const ExplosionHitObject& hitObject,
 		bool withMutex = false
 	) { return false; }
 
@@ -114,7 +117,7 @@ public:
 		float radius,
 		float gfxMod,
 		CUnit* owner,
-		CUnit* hit,
+		const ExplosionHitObject& hitObject,
 		bool withMutex
 	) override;
 };
@@ -160,20 +163,22 @@ public:
 		float radius,
 		float gfxMod,
 		CUnit* owner,
-		CUnit* hit,
+		const ExplosionHitObject& hitObject,
 		bool withMutex
 	) override;
 
 	// spawn-flags
 	enum {
-		CEG_SPWF_WATER      = 1 << 0,
-		CEG_SPWF_GROUND     = 1 << 1,
-		CEG_SPWF_VOIDWATER  = 1 << 2,
-		CEG_SPWF_VOIDGROUND = 1 << 3,
-		CEG_SPWF_AIR        = 1 << 4,
-		CEG_SPWF_UNDERWATER = 1 << 5,  // TODO: UNDERVOIDWATER?
-		CEG_SPWF_UNIT       = 1 << 6,  // only execute when the explosion hits a unit
-		CEG_SPWF_NO_UNIT    = 1 << 7,  // only execute when the explosion doesn't hit a unit (environment)
+		CEG_SPWF_WATER       = 1 << 0,
+		CEG_SPWF_GROUND      = 1 << 1,
+		CEG_SPWF_VOIDWATER   = 1 << 2,
+		CEG_SPWF_VOIDGROUND  = 1 << 3,
+		CEG_SPWF_AIR         = 1 << 4,
+		CEG_SPWF_UNDERWATER  = 1 << 5,  // TODO: UNDERVOIDWATER?
+		CEG_SPWF_UNIT        = 1 << 6,  // only execute when the explosion hits a unit
+		CEG_SPWF_NO_UNIT     = 1 << 7,  // only execute when the explosion doesn't hit a unit (environment)
+		CEG_SPWF_SHIELD      = 1 << 8,  // execute when the explosion hits a shield
+		CEG_SPWF_INTERCEPTED = 1 << 9,  // the weapon projectile was intercepted
 		CEG_SPWF_ALWAYS_VISIBLE = 1 << 31,
 	};
 

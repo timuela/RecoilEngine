@@ -29,6 +29,8 @@
 #include "Sim/Projectiles/ProjectileHandler.h"
 #include "Sim/Projectiles/ProjectileMemPool.h"
 
+#include "Sim/Weapons/PlasmaRepulser.h"
+
 #include "System/creg/STL_Map.h"
 #include "System/FileSystem/ArchiveScanner.h"
 #include "System/FileSystem/FileSystemInitializer.h"
@@ -123,14 +125,16 @@ uint32_t CCustomExplosionGenerator::GetFlagsFromTable(const LuaTable& table)
 {
 	uint32_t flags = 0;
 
-	flags |= (CEG_SPWF_GROUND     * table.GetBool(    "ground", false));
-	flags |= (CEG_SPWF_WATER      * table.GetBool(    "water" , false));
-	flags |= (CEG_SPWF_VOIDGROUND * table.GetBool("voidground", false));
-	flags |= (CEG_SPWF_VOIDWATER  * table.GetBool("voidwater" , false));
-	flags |= (CEG_SPWF_AIR        * table.GetBool(       "air", false));
-	flags |= (CEG_SPWF_UNDERWATER * table.GetBool("underwater", false));
-	flags |= (CEG_SPWF_UNIT       * table.GetBool(      "unit", false));
-	flags |= (CEG_SPWF_NO_UNIT    * table.GetBool(    "nounit", false));
+	flags |= (CEG_SPWF_GROUND      * table.GetBool(     "ground", false));
+	flags |= (CEG_SPWF_WATER       * table.GetBool(     "water" , false));
+	flags |= (CEG_SPWF_VOIDGROUND  * table.GetBool( "voidground", false));
+	flags |= (CEG_SPWF_VOIDWATER   * table.GetBool( "voidwater" , false));
+	flags |= (CEG_SPWF_AIR         * table.GetBool(        "air", false));
+	flags |= (CEG_SPWF_UNDERWATER  * table.GetBool( "underwater", false));
+	flags |= (CEG_SPWF_UNIT        * table.GetBool(       "unit", false));
+	flags |= (CEG_SPWF_NO_UNIT     * table.GetBool(     "nounit", false));
+	flags |= (CEG_SPWF_SHIELD      * table.GetBool(     "shield", false));
+	flags |= (CEG_SPWF_INTERCEPTED * table.GetBool("intercepted", false));
 	flags |= (CEG_SPWF_ALWAYS_VISIBLE * table.SubTable("properties").GetBool("alwaysvisible", false));
 
 	return flags;
@@ -370,7 +374,7 @@ bool CExplosionGeneratorHandler::GenExplosion(
 	float radius,
 	float gfxMod,
 	CUnit* owner,
-	CUnit* hit,
+	const ExplosionHitObject& hitObject,
 	bool withMutex
 ) {
 	RECOIL_DETAILED_TRACY_ZONE;
@@ -379,7 +383,16 @@ bool CExplosionGeneratorHandler::GenExplosion(
 	if (expGen == nullptr)
 		return false;
 
-	return (expGen->Explosion(pos, dir, damage, radius, gfxMod, owner, hit, withMutex));
+	return expGen->Explosion(
+		pos,
+		dir,
+		damage,
+		radius,
+		gfxMod,
+		owner,
+		hitObject,
+		withMutex
+	);
 }
 
 
@@ -405,7 +418,7 @@ bool CExplosionGeneratorHandler::PredictExplosionVisible(const WeaponDef* weapon
 			const float realHeight = CGround::GetHeightReal(pos);
 			unsigned int visFlags = CCustomExplosionGenerator::GetFlagsFromHeight(pos.y, realHeight);
 
-			const bool unitCollision = (params.hitUnit != nullptr);
+			const bool unitCollision = params.hitObject.HasStored<CUnit>();
 			visFlags |= (CCustomExplosionGenerator::CEG_SPWF_UNIT    * (    unitCollision));
 			visFlags |= (CCustomExplosionGenerator::CEG_SPWF_NO_UNIT * (1 - unitCollision));
 
@@ -436,7 +449,7 @@ bool CStdExplosionGenerator::Explosion(
 	float radius,
 	float gfxMod,
 	CUnit* owner,
-	CUnit* hit,
+	const ExplosionHitObject& hitObject,
 	bool withMutex
 ) {
 	RECOIL_DETAILED_TRACY_ZONE;
@@ -1060,17 +1073,23 @@ bool CCustomExplosionGenerator::Explosion(
 	float radius,
 	float gfxMod,
 	CUnit* owner,
-	CUnit* hit,
+	const ExplosionHitObject& hitObject,
 	bool withMutex
 ) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	uint32_t flags = GetFlagsFromHeight(pos.y, CGround::GetHeightReal(pos.x, pos.z));
 
-	const bool   unitCollision = (hit != nullptr);
+	auto* hitWeapon = hitObject.GetTyped<CWeapon>();
+
+	const bool   unitCollision = hitObject.HasStored<CUnit>();
+	const bool shieldCollision = (dynamic_cast<CPlasmaRepulser*>(hitWeapon) != nullptr);
 	const bool groundExplosion = ((flags & CEG_SPWF_GROUND) != 0);
 
 	flags |= (CEG_SPWF_UNIT    * (    unitCollision));
 	flags |= (CEG_SPWF_NO_UNIT * (1 - unitCollision));
+
+	flags |= CEG_SPWF_SHIELD * shieldCollision;
+	flags |= CEG_SPWF_INTERCEPTED * (hitWeapon && !shieldCollision);
 
 	const std::vector<ProjectileSpawnInfo>& spawnInfo = expGenParams.projectiles;
 
@@ -1100,8 +1119,18 @@ bool CCustomExplosionGenerator::Explosion(
 		}
 	}
 
-	if (expGenParams.useDefaultExplosions)
-		return (explGenHandler.GenExplosion(CExplosionGeneratorHandler::EXPGEN_ID_STANDARD, pos, dir, damage, radius, gfxMod, owner, hit));
+	if (expGenParams.useDefaultExplosions) {
+		return (explGenHandler.GenExplosion(
+			CExplosionGeneratorHandler::EXPGEN_ID_STANDARD,
+			pos,
+			dir,
+			damage,
+			radius,
+			gfxMod,
+			owner,
+			hitObject
+		));
+	}
 
 	return true;
 }
