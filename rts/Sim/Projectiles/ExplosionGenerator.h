@@ -203,7 +203,7 @@ public:
 		OP_POWBUFF  = 18, // Power with buffer as exponent
 	};
 public:
-	static const spring::unordered_map<std::string, std::string> classNameAliases;
+	static std::string GetClassNameAlias(const std::string& alias);
 private:
 	void ParseExplosionCode(ProjectileSpawnInfo* psi, const std::string& script, SExpGenSpawnableMemberInfo& memberInfo, std::string& code);
 	void ExecuteExplosionCode(const char* code, float damage, char* instance, int spawnIndex, const float3& dir);

@@ -54,72 +54,76 @@ static constexpr size_t CEG_PREFIX_STRLEN = sizeof(CEG_PREFIX_STRING) - 1;
 
 CExplosionGeneratorHandler explGenHandler;
 
-//NOTE: lots of the projectile types here cannot be resolved by CExpGenSpawnable::GetSpawnableID()
-const spring::unordered_map<std::string, std::string> CCustomExplosionGenerator::classNameAliases {
-	{ "beamlaser"             , "CBeamLaserProjectile"   },
-	{ "bitmapmuzzleflame"     , "CBitmapMuzzleFlame"     },
-	{ "bubble"                , "CBubbleProjectile"      },
-	{ "delayspawner"          , "CExpGenSpawner"         },
-	{ "dirt"                  , "CDirtProjectile"        },
-	{ "emg"                   , "CEmgProjectile"         },
-	{ "expl"                  , "CExplosiveProjectile"   },
-	{ "explsphere"            , "CSpherePartSpawner"     },
-	{ "explspike"             , "CExploSpikeProjectile"  },
-	{ "fireball"              , "CFireBallProjectile"    },
-	{ "fire"                  , "CFireProjectile"        },  
-	{ "flame"                 , "CFlameProjectile"       },
-	{ "flare"                 , "CFlareProjectile"       },
-	{ "geosquare"             , "CGeoSquareProjectile"   },
-	{ "heatcloud"             , "CHeatCloudProjectile"   },
-	{ "lighting"              , "CLightingProjectile"    },
-	{ "missile"               , "CMissileProjectile"     },
-	{ "muzzleflame"           , "CMuzzleFlame"           },
-	{ "piece"                 , "CPieceProjectile"       },
-	{ "shieldpart"            , "CShieldPartProjectile"  },
-	{ "simplegroundflash"     , "CSimpleGroundFlash"     },
-	{ "groundflash"           , "CStandardGroundFlash"   },
-	{ "simpleparticlespawner" , "CSphereParticleSpawner" },
-	{ "simpleparticlesystem"  , "CSimpleParticleSystem"  },
-	{ "smoke"                 , "CSmokeProjectile"       },
-	{ "smoke2"                , "CSmokeProjectile2"      },
-	{ "smoketrail"            , "CSmokeTrailProjectile"  },
-	{ "spherepart"            , "CSpherePartProjectile"  },
-	{ "starburst"             , "CStarburstProjectile"   },
-	{ "torpedo"               , "CTorpedoProjectile"     },
-	{ "tracer"                , "CTracerProjectile"      },
-	{ "wake"                  , "CWakeProjectile"        },
-	{ "CBeamLaserProjectile"  , "CBeamLaserProjectile"   },
-	{ "CBitmapMuzzleFlame"	  , "CBitmapMuzzleFlame"     },
-	{ "CBubbleProjectile"	  , "CBubbleProjectile"      },
-	{ "CExpGenSpawner"        , "CExpGenSpawner"         },
-	{ "CDirtProjectile"       , "CDirtProjectile"        },
-	{ "CEmgProjectile"        , "CEmgProjectile"         },
-	{ "CExplosiveProjectile"  , "CExplosiveProjectile"   },
-	{ "CSpherePartSpawner"	  , "CSpherePartSpawner"     },
-	{ "CExploSpikeProjectile" , "CExploSpikeProjectile"  },
-	{ "CFireBallProjectile"	  , "CFireBallProjectile"    },
-	{ "CFireProjectile"       , "CFireProjectile"        },
-	{ "CFlameProjectile"	  , "CFlameProjectile"       },
-	{ "CFlareProjectile"	  , "CFlareProjectile"       },
-	{ "CGeoSquareProjectile"  , "CGeoSquareProjectile"   },
-	{ "CHeatCloudProjectile"  , "CHeatCloudProjectile"   },
-	{ "CLightingProjectile"	  , "CLightingProjectile"    },
-	{ "CMissileProjectile"	  , "CMissileProjectile"     },
-	{ "CMuzzleFlame"          , "CMuzzleFlame"           },
-	{ "CPieceProjectile"	  , "CPieceProjectile"       },
-	{ "CShieldPartProjectile" , "CShieldPartProjectile"  },
-	{ "CSimpleGroundFlash"	  , "CSimpleGroundFlash"     },
-	{ "CSphereParticleSpawner", "CSphereParticleSpawner" },
-	{ "CSimpleParticleSystem" , "CSimpleParticleSystem"  },
-	{ "CSmokeProjectile"	  , "CSmokeProjectile"       },
-	{ "CSmokeProjectile2"	  , "CSmokeProjectile2"      },
-	{ "CSmokeTrailProjectile" , "CSmokeTrailProjectile"  },
-	{ "CSpherePartProjectile" , "CSpherePartProjectile"  },
-	{ "CStarburstProjectile"  , "CStarburstProjectile"   },
-	{ "CTorpedoProjectile"	  , "CTorpedoProjectile"     },
-	{ "CTracerProjectile"	  , "CTracerProjectile"      },
-	{ "CWakeProjectile"       , "CWakeProjectile"        },
-};
+std::string CCustomExplosionGenerator::GetClassNameAlias(const std::string& alias)
+{
+	switch (hashString(alias))
+	{
+	case hashString("beamlaser"             ): return "CBeamLaserProjectile"  ;
+	case hashString("bitmapmuzzleflame"     ): return "CBitmapMuzzleFlame"    ;
+	case hashString("bubble"                ): return "CBubbleProjectile"     ;
+	case hashString("delayspawner"          ): return "CExpGenSpawner"        ;
+	case hashString("dirt"                  ): return "CDirtProjectile"       ;
+	case hashString("emg"                   ): return "CEmgProjectile"        ;
+	case hashString("expl"                  ): return "CExplosiveProjectile"  ;
+	case hashString("explsphere"            ): return "CSpherePartSpawner"    ;
+	case hashString("explspike"             ): return "CExploSpikeProjectile" ;
+	case hashString("fireball"              ): return "CFireBallProjectile"   ;
+	case hashString("fire"                  ): return "CFireProjectile"       ;
+	case hashString("flame"                 ): return "CFlameProjectile"      ;
+	case hashString("flare"                 ): return "CFlareProjectile"      ;
+	case hashString("geosquare"             ): return "CGeoSquareProjectile"  ;
+	case hashString("heatcloud"             ): return "CHeatCloudProjectile"  ;
+	case hashString("lighting"              ): return "CLightingProjectile"   ;
+	case hashString("missile"               ): return "CMissileProjectile"    ;
+	case hashString("muzzleflame"           ): return "CMuzzleFlame"          ;
+	case hashString("piece"                 ): return "CPieceProjectile"      ;
+	case hashString("shieldpart"            ): return "CShieldPartProjectile" ;
+	case hashString("simplegroundflash"     ): return "CSimpleGroundFlash"    ;
+	case hashString("groundflash"           ): return "CStandardGroundFlash"  ;
+	case hashString("simpleparticlespawner" ): return "CSphereParticleSpawner";
+	case hashString("simpleparticlesystem"  ): return "CSimpleParticleSystem" ;
+	case hashString("smoke"                 ): return "CSmokeProjectile"      ;
+	case hashString("smoke2"                ): return "CSmokeProjectile2"     ;
+	case hashString("smoketrail"            ): return "CSmokeTrailProjectile" ;
+	case hashString("spherepart"            ): return "CSpherePartProjectile" ;
+	case hashString("starburst"             ): return "CStarburstProjectile"  ;
+	case hashString("torpedo"               ): return "CTorpedoProjectile"    ;
+	case hashString("tracer"                ): return "CTracerProjectile"     ;
+	case hashString("wake"                  ): return "CWakeProjectile"       ;
+	case hashString("CBeamLaserProjectile"  ): return "CBeamLaserProjectile"  ;
+	case hashString("CBitmapMuzzleFlame"	): return "CBitmapMuzzleFlame"    ;
+	case hashString("CBubbleProjectile"	    ): return "CBubbleProjectile"     ;
+	case hashString("CExpGenSpawner"        ): return "CExpGenSpawner"        ;
+	case hashString("CDirtProjectile"       ): return "CDirtProjectile"       ;
+	case hashString("CEmgProjectile"        ): return "CEmgProjectile"        ;
+	case hashString("CExplosiveProjectile"  ): return "CExplosiveProjectile"  ;
+	case hashString("CSpherePartSpawner"	): return "CSpherePartSpawner"    ;
+	case hashString("CExploSpikeProjectile" ): return "CExploSpikeProjectile" ;
+	case hashString("CFireBallProjectile"	): return "CFireBallProjectile"   ;
+	case hashString("CFireProjectile"       ): return "CFireProjectile"       ;
+	case hashString("CFlameProjectile"	    ): return "CFlameProjectile"      ;
+	case hashString("CFlareProjectile"	    ): return "CFlareProjectile"      ;
+	case hashString("CGeoSquareProjectile"  ): return "CGeoSquareProjectile"  ;
+	case hashString("CHeatCloudProjectile"  ): return "CHeatCloudProjectile"  ;
+	case hashString("CLightingProjectile"	): return "CLightingProjectile"   ;
+	case hashString("CMissileProjectile"	): return "CMissileProjectile"    ;
+	case hashString("CMuzzleFlame"          ): return "CMuzzleFlame"          ;
+	case hashString("CPieceProjectile"	    ): return "CPieceProjectile"      ;
+	case hashString("CShieldPartProjectile" ): return "CShieldPartProjectile" ;
+	case hashString("CSimpleGroundFlash"	): return "CSimpleGroundFlash"    ;
+	case hashString("CSphereParticleSpawner"): return "CSphereParticleSpawner";
+	case hashString("CSimpleParticleSystem" ): return "CSimpleParticleSystem" ;
+	case hashString("CSmokeProjectile"	    ): return "CSmokeProjectile"      ;
+	case hashString("CSmokeProjectile2"	    ): return "CSmokeProjectile2"     ;
+	case hashString("CSmokeTrailProjectile" ): return "CSmokeTrailProjectile" ;
+	case hashString("CSpherePartProjectile" ): return "CSpherePartProjectile" ;
+	case hashString("CStarburstProjectile"  ): return "CStarburstProjectile"  ;
+	case hashString("CTorpedoProjectile"	): return "CTorpedoProjectile"    ;
+	case hashString("CTracerProjectile"	    ): return "CTracerProjectile"     ;
+	case hashString("CWakeProjectile"       ): return "CWakeProjectile"       ;
+	default                                  : return "Unresolved"            ;
+	}
+}
 
 uint32_t CCustomExplosionGenerator::GetFlagsFromTable(const LuaTable& table)
 {
@@ -795,8 +799,6 @@ void CCustomExplosionGenerator::ExecuteExplosionCode(const char* code, float dam
 	}
 }
 
-
-
 void CCustomExplosionGenerator::ParseExplosionCode(
 	CCustomExplosionGenerator::ProjectileSpawnInfo* psi,
 	const string& script,
@@ -978,9 +980,8 @@ bool CCustomExplosionGenerator::Load(CExplosionGeneratorHandler* handler, const 
 			classNameFlags = CEG_SPWF_GROUND;
 		}
 
-		const std::string className = spawnTable.GetString("class", spawnName);
-		auto it = classNameAliases.find(className);
-		const std::string resolvedClassName = (it != classNameAliases.end()) ? it->second : "Unresolved";
+		const auto className = spawnTable.GetString("class", spawnName);
+		const auto resolvedClassName = GetClassNameAlias(className);
 
 		if ((psi.spawnableID = CExpGenSpawnable::GetSpawnableID(resolvedClassName)) == -1u) {
 			LOG_L(L_WARNING, "[CCEG::%s] %s: unknown class \"%s\"(\"%s\")", __func__, tag, className.c_str(), resolvedClassName.c_str());
