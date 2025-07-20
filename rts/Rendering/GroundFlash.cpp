@@ -76,10 +76,10 @@ CR_REG_METADATA(CSimpleGroundFlash, (
 
 // CREG-only
 CGroundFlash::CGroundFlash()
+	: size(0.0f)
+	, depthTest(true)
+	, depthMask(false)
 {
-	size = 0.0f;
-	depthTest = true;
-	depthMask = false;
 	alwaysVisible = false;
 }
 
@@ -128,6 +128,23 @@ bool CGroundFlash::GetMemberInfo(SExpGenSpawnableMemberInfo& memberInfo)
 	return false;
 }
 
+CStandardGroundFlash::CStandardGroundFlash()
+	: CGroundFlash()
+	, normal{}
+	, side1{}
+	, side2{}
+	, ttl{0}
+	, flashSize{0.0f}
+	, circleSize{0.0f}
+	, circleGrowth{0.0f}
+	, circleAlpha{0.0f}
+	, flashAlpha{0.0f}
+	, flashAge{0.0f}
+	, flashAgeSpeed{0.0f}
+	, circleAlphaDec{0.0f}
+	, color{0.0f, 0.0f, 0.0f}
+{}
+
 CStandardGroundFlash::CStandardGroundFlash(
 	const float3 & _pos,
 	float _circleAlpha,
@@ -139,14 +156,14 @@ CStandardGroundFlash::CStandardGroundFlash(
 	: CGroundFlash(_pos)
 	, ttl((int)_ttl)
 	, flashSize(_flashSize)
-	, circleSize(_circleGrowth)
+	, circleSize(0.0f)
 	, circleGrowth(_circleGrowth)
 	, circleAlpha(_circleAlpha)
 	, flashAlpha(_flashAlpha)
-	, color(float4{ _color, 0.0f })
+	, color{ 0.0f, 0.0f, 0.0f }
 	, flashAge(0)
-	, flashAgeSpeed(ttl ? 1.0f / ttl : 0)
-	, circleAlphaDec(ttl ? circleAlpha / ttl : 0)
+	, flashAgeSpeed(0.0f)
+	, circleAlphaDec(0.0f)
 {
 	//explicit constructor call, needs Init()
 	Init(nullptr, float3{ 0.0 });
@@ -160,6 +177,11 @@ void CStandardGroundFlash::Init(const CUnit* owner, const float3& offset)
 
 	// flashSize is just backward compatibility
 	size = flashSize;
+
+	// moved from the constructor
+	circleSize = circleGrowth;
+	flashAgeSpeed = ttl ? 1.0f / ttl : 0.0f;
+	circleAlphaDec = ttl ? circleAlpha / ttl : 0.0f;
 
 	normal = CalcNormal(pos, camera->GetDir() * -1000.0f, flashSize);
 
@@ -188,8 +210,9 @@ void CStandardGroundFlash::Draw()
 
 	const float iSize = circleSize + circleGrowth * globalRendering->timeOffset;
 	const float iAge = flashAge + flashAgeSpeed * globalRendering->timeOffset;
+	SColor partColor = SColor(color.r, color.g, color.b, 0.0f);
 
-	if (iAlpha > 0.0f) {
+	if (iAlpha > 0.0f && iSize > 0.0f) {
 		std::array<float3, 4> bounds = {
 			(-side1 - side2) * iSize,
 			( side1 - side2) * iSize,
@@ -201,13 +224,13 @@ void CStandardGroundFlash::Draw()
 			float3::rotate<false>(rotVal, normal, bounds);
 		}
 
-		color.a = (unsigned char)(iAlpha * 255);
+		partColor.a = (unsigned char)(iAlpha * 255);
 		AddEffectsQuad<0>(
 			projectileDrawer->groundringtex->pageNum,
-			{ pos + bounds[0], projectileDrawer->groundringtex->xstart, projectileDrawer->groundringtex->ystart, color },
-			{ pos + bounds[1], projectileDrawer->groundringtex->xend,   projectileDrawer->groundringtex->ystart, color },
-			{ pos + bounds[2], projectileDrawer->groundringtex->xend,   projectileDrawer->groundringtex->yend,   color },
-			{ pos + bounds[3], projectileDrawer->groundringtex->xstart, projectileDrawer->groundringtex->yend,   color }
+			{ pos + bounds[0], projectileDrawer->groundringtex->xstart, projectileDrawer->groundringtex->ystart, partColor },
+			{ pos + bounds[1], projectileDrawer->groundringtex->xend,   projectileDrawer->groundringtex->ystart, partColor },
+			{ pos + bounds[2], projectileDrawer->groundringtex->xend,   projectileDrawer->groundringtex->yend,   partColor },
+			{ pos + bounds[3], projectileDrawer->groundringtex->xstart, projectileDrawer->groundringtex->yend,   partColor }
 		);
 	}
 
@@ -219,7 +242,10 @@ void CStandardGroundFlash::Draw()
 			iAlpha = flashAlpha * (1.0f - iAge);
 		}
 
-		color.a = std::clamp(iAlpha, 0.0f, 1.0f) * 255;
+		if (iAlpha <= 0.0f)
+			return;
+
+		partColor.a = std::clamp(iAlpha, 0.0f, 1.0f) * 255;
 
 		std::array<float3, 4> bounds = {
 			(-side1 - side2) * size,
@@ -234,10 +260,10 @@ void CStandardGroundFlash::Draw()
 
 		AddEffectsQuad<0>(
 			projectileDrawer->groundflashtex->pageNum,
-			{ pos + bounds[0], projectileDrawer->groundflashtex->xstart, projectileDrawer->groundflashtex->ystart, color },
-			{ pos + bounds[1], projectileDrawer->groundflashtex->xend  , projectileDrawer->groundflashtex->ystart, color },
-			{ pos + bounds[2], projectileDrawer->groundflashtex->xend  , projectileDrawer->groundflashtex->yend  , color },
-			{ pos + bounds[3], projectileDrawer->groundflashtex->xstart, projectileDrawer->groundflashtex->yend  , color }
+			{ pos + bounds[0], projectileDrawer->groundflashtex->xstart, projectileDrawer->groundflashtex->ystart, partColor },
+			{ pos + bounds[1], projectileDrawer->groundflashtex->xend  , projectileDrawer->groundflashtex->ystart, partColor },
+			{ pos + bounds[2], projectileDrawer->groundflashtex->xend  , projectileDrawer->groundflashtex->yend  , partColor },
+			{ pos + bounds[3], projectileDrawer->groundflashtex->xstart, projectileDrawer->groundflashtex->yend  , partColor }
 		);
 	}
 }
@@ -254,7 +280,7 @@ bool CStandardGroundFlash::GetMemberInfo(SExpGenSpawnableMemberInfo& memberInfo)
 	CHECK_MEMBER_INFO_FLOAT (CStandardGroundFlash, flashAlpha  );
 	CHECK_MEMBER_INFO_FLOAT (CStandardGroundFlash, circleGrowth);
 	CHECK_MEMBER_INFO_FLOAT (CStandardGroundFlash, circleAlpha );
-	CHECK_MEMBER_INFO_SCOLOR(CStandardGroundFlash, color       );
+	CHECK_MEMBER_INFO_FLOAT3(CStandardGroundFlash, color       );
 
 	return false;
 }

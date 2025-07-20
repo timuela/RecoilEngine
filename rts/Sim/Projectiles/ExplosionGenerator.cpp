@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cassert>
 #include <cinttypes>
+#include <fmt/format.h>
 
 #include "ExplosionGenerator.h"
 #include "ExpGenSpawner.h" //!!
@@ -976,12 +977,12 @@ bool CCustomExplosionGenerator::Load(CExplosionGeneratorHandler* handler, const 
 		uint32_t classNameFlags = 0;
 		bool hasPropertiesTbl = spawnTable.KeyExists("properties");
 
-		if (spawnName == "groundflash") {
-			classNameFlags = CEG_SPWF_GROUND;
-		}
-
 		const auto className = spawnTable.GetString("class", spawnName);
 		const auto resolvedClassName = GetClassNameAlias(className);
+
+		if (resolvedClassName == "CStandardGroundFlash" || resolvedClassName == "CSimpleGroundFlash") {
+			classNameFlags = CEG_SPWF_GROUND;
+		}
 
 		if ((psi.spawnableID = CExpGenSpawnable::GetSpawnableID(resolvedClassName)) == -1u) {
 			LOG_L(L_WARNING, "[CCEG::%s] %s: unknown class \"%s\"(\"%s\")", __func__, tag, className.c_str(), resolvedClassName.c_str());
@@ -1006,6 +1007,12 @@ bool CCustomExplosionGenerator::Load(CExplosionGeneratorHandler* handler, const 
 			props.erase("underwater");
 			props.erase(      "unit");
 			props.erase(    "nounit");
+
+			// spawnTable.GetMap(props); will skip CStandardGroundFlash.color because it's a table, revert it to string manually
+			if (spawnTable.KeyExists("color")) {
+				const auto color = spawnTable.GetFloat3("color", float3{});
+				props.emplace("color", fmt::format("{},{},{}", color.r, color.g, color.b));
+			}
 		} else {
 			spawnTable.SubTable("properties").GetMap(props);
 		}
@@ -1035,7 +1042,7 @@ bool CCustomExplosionGenerator::Load(CExplosionGeneratorHandler* handler, const 
 		}
 
 		for (const auto& [propName, propValue]: props) {
-			SExpGenSpawnableMemberInfo memberInfo = {0, 0, 0, STRING_HASH(std::move(StringToLower(propName))), SExpGenSpawnableMemberInfo::TYPE_INT, nullptr};
+			SExpGenSpawnableMemberInfo memberInfo = {0, 0, 0, STRING_HASH(StringToLower(propName)), SExpGenSpawnableMemberInfo::TYPE_INT, nullptr};
 
 			if (CExpGenSpawnable::GetSpawnableMemberInfo(resolvedClassName, memberInfo)) {
 				ParseExplosionCode(&psi, propValue, memberInfo, code);

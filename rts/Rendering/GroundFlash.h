@@ -46,7 +46,7 @@ class CStandardGroundFlash : public CGroundFlash
 public:
 	CR_DECLARE_DERIVED(CStandardGroundFlash)
 
-	CStandardGroundFlash() = default;
+	CStandardGroundFlash();
 	CStandardGroundFlash(
 		const float3& pos,
 		float _circleAlpha,
@@ -81,7 +81,7 @@ private:
 	float circleAlphaDec;
 
 
-	SColor color;
+	float3 color;
 };
 
 /**
