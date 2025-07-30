@@ -53,7 +53,6 @@ namespace Threading {
 
 	cpu_topology::ThreadPinPolicy GetChosenThreadPinPolicy() {
 		int configPinPolicy = configHandler->GetInt("ThreadPinPolicy");
-		LOG("ThreadPinPolicy == %d", configPinPolicy);
 		switch (configPinPolicy) {
 			case ConfigPinPolicy::None:
 				return cpu_topology::THREAD_PIN_POLICY_NONE;
