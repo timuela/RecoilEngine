@@ -1570,7 +1570,8 @@ int LuaSyncedRead::GetAllyTeamStartBox(lua_State* L)
  *
  * @return number? x
  * @return number? y
- * @return number? x
+ * @return number? z
+ * @return boolean hasValidStartPos
  */
 int LuaSyncedRead::GetTeamStartPosition(lua_State* L)
 {
@@ -1587,6 +1588,7 @@ int LuaSyncedRead::GetTeamStartPosition(lua_State* L)
 	lua_pushnumber(L, pos.y);
 	lua_pushnumber(L, pos.z);
 	lua_pushboolean(L, team->HasValidStartPos());
+
 	return 4;
 }
 

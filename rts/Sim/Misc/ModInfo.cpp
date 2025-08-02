@@ -44,6 +44,9 @@ void CModInfo::ResetState()
 		groundUnitCollisionAvoidanceUpdateRate = 3;
 	}
 	{
+		useStartPositionSelecter = true;
+	}
+	{
 		constructionDecay      = true;
 		constructionDecayTime  = int(6.66 * GAME_SPEED);
 		constructionDecaySpeed = 0.03f;
@@ -188,6 +191,13 @@ void CModInfo::Init(const std::string& modFileName)
 
 		allowTake = system.GetBool("allowTake", allowTake);
 		allowEnginePlayerlist = system.GetBool("allowEnginePlayerlist", allowEnginePlayerlist);
+	}
+
+	{
+		// game start
+		const LuaTable& gameStart = root.SubTable("gameStart");
+
+		useStartPositionSelecter = gameStart.GetBool("useStartPositionSelecter", useStartPositionSelecter);
 	}
 
 	{

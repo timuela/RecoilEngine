@@ -138,6 +138,7 @@ bool LuaSyncedCtrl::PushEntries(lua_State* L)
 
 	REGISTER_LUA_CFUNC(SetAlly);
 	REGISTER_LUA_CFUNC(SetAllyTeamStartBox);
+	REGISTER_LUA_CFUNC(SetTeamStartPosition);
 	REGISTER_LUA_CFUNC(KillTeam);
 	REGISTER_LUA_CFUNC(AssignPlayerToTeam);
 	REGISTER_LUA_CFUNC(GameOver);
@@ -917,6 +918,56 @@ int LuaSyncedCtrl::SetAllyTeamStartBox(lua_State* L)
 	return 0;
 }
 
+/*** Set the starting position of a team.
+ * 
+ * @function Spring.SetTeamStartPosition
+ * @param playerID integer
+ * @param teamID integer
+ * @param readyState integer
+ * @param x number left position (elmos)
+ * @param y number vertical position (elmos)
+ * @param z number top position (elmos)
+ * @return boolean true if the position was set, false if the teamID is invalid or if engine start position selection is enabled.
+ */
+int LuaSyncedCtrl::SetTeamStartPosition(lua_State* L)
+{
+	if (modInfo.useStartPositionSelecter == true) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	const unsigned int playerID = luaL_checkint(L, 1);
+	const unsigned int teamID = luaL_checkint(L, 2);
+	const unsigned int readyState = luaL_checkint(L, 3);
+	const float x = luaL_checkfloat(L, 4);
+	const float y = luaL_checkfloat(L, 5);
+	const float z = luaL_checkfloat(L, 6);
+
+	if (!playerHandler.IsValidPlayer(playerID) && playerID != SERVER_PLAYER) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	if (!teamHandler.IsValidTeam(teamID)) {
+		lua_pushboolean(L, false);
+		return 1;
+	}
+
+	float3 rawPickPos(x, y, z);
+	float3 clampedPos(rawPickPos);
+
+	CTeam* team = teamHandler.Team(teamID);
+	team->ClampStartPosInStartBox(&clampedPos);
+
+	if (eventHandler.AllowStartPosition(playerID, teamID, readyState, clampedPos, rawPickPos)) {
+		team->SetStartPos(clampedPos);
+		if (playerID != SERVER_PLAYER)
+			playerHandler.Player(playerID)->SetReadyToStart(readyState != CPlayer::PLAYER_RDYSTATE_UPDATED);
+	}
+
+	lua_pushboolean(L, true);
+	return 1;
+}
 
 /*** Assigns a player to a team.
  *

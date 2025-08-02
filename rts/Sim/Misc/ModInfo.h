@@ -62,6 +62,10 @@ public:
 	// a lower number will increase CPU load, but improve reaction time of collision avoidance
 	int groundUnitCollisionAvoidanceUpdateRate;
 
+	// Game start options
+	/// If true, players can select their start position by clicking the map
+	bool useStartPositionSelecter;
+
 	// Build behaviour
 	/// Should constructions without builders decay?
 	bool constructionDecay;
