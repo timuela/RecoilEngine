@@ -294,7 +294,7 @@ class Generator
     # ## Table of Contents
     #
     # #{@globals.map { |el| el.generate(:definition) }.join("\n")}
-    entries = @globals.map(&:generate_sidebar_entry).join(',')
+    entries = @globals.map(&:generate_sidebar_entry).compact.join(',')
 
     <<~EOF
       +++

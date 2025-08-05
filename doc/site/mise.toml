@@ -1,11 +1,12 @@
 [tools]
+	"cargo:https://github.com/EmmyLuaLs/emmylua-analyzer-rust" = { version = "rev:9924098", crate = "emmylua_doc_cli" }
 	# We only install tools required for each task on each task, unless all tasks use a tool here
 	# For CI when we need to install and cache all tools, see mise.ci.toml
 
 [env]
 	HUGO_VERSION = "0.147.9"
 	LUA_DOC_EXTRACTOR_VERSION = "3" # lua_library lua_check
-	EMMYLUA_DOC_CLI_VERSION = "0.9.0" # lua_pages lua_library lua_check
+	EMMYLUA_DOC_CLI_VERSION = "rev:9924098" # lua_pages lua_library lua_check
 	LUA_LANGUAGE_SERVER_VERSION = "3.15.0" # lua_check
 	JQ_VERSION = "1.8.0" # binary_pages
 	7Z_VERSION = "24.09" # binary_pages
@@ -42,7 +43,6 @@
 
 	[tasks.lua_json]
 	description = "Generate Lua JSON export"
-	tools."cargo:emmylua_doc_cli" = "{{env.EMMYLUA_DOC_CLI_VERSION}}"
 	depends = ["lua_library"]
 	dir = "../../"
 	run = "emmylua_doc_cli -f json -i $RECOIL_LUA_LIBRARY_DIR -o {{vars.site_dir}}/data"

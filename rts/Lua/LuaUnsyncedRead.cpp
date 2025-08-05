@@ -4547,16 +4547,10 @@ int LuaUnsyncedRead::GetLogSections(lua_State* L) {
 }
 
 
-/******************************************************************************
- * Decals
- * @section decals
-******************************************************************************/
-
-
 /***
  *
  * @function Spring.GetAllGroundDecals
- *
+ * @x_section decals
  * @return number[] decalIDs
  */
 int LuaUnsyncedRead::GetAllGroundDecals(lua_State* L)
@@ -4590,6 +4584,7 @@ int LuaUnsyncedRead::GetAllGroundDecals(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalMiddlePos
+ * @x_section decals
  * @param decalID integer
  * @return number? posX
  * @return number posZ
@@ -4612,6 +4607,7 @@ int LuaUnsyncedRead::GetGroundDecalMiddlePos(lua_State* L)
  *
  * @function Spring.GetGroundDecalQuadPos
  * @param decalID integer
+ * @x_section decals
  * @return number? posTL.x
  * @return number posTL.z
  * @return number posTR.x
@@ -4645,6 +4641,7 @@ int LuaUnsyncedRead::GetGroundDecalQuadPos(lua_State* L)
  *
  * @function Spring.GetGroundDecalSizeAndHeight
  * @param decalID integer
+ * @x_section decals
  * @return number? sizeX
  * @return number sizeY
  * @return number projCubeHeight
@@ -4668,6 +4665,7 @@ int LuaUnsyncedRead::GetGroundDecalSizeAndHeight(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalRotation
+ * @x_section decals
  * @param decalID integer
  * @return number? rotation Rotation in radians.
  */
@@ -4687,6 +4685,7 @@ int LuaUnsyncedRead::GetGroundDecalRotation(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalTexture
+ * @x_section decals
  * @param decalID integer
  * @param isMainTex boolean? (Default: `true`) If `false`, return the normal/glow map.
  * @return string? texture
@@ -4702,6 +4701,7 @@ int LuaUnsyncedRead::GetGroundDecalTexture(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalTextures
+ * @x_section decals
  * @param isMainTex boolean? (Default: `true`) If `false`, return the texture for normal/glow maps.
  * @return string[] textureNames All textures on the atlas and available for use in `SetGroundDecalTexture`.
  * @see Spring.GetGroundDecalTexture
@@ -4718,6 +4718,7 @@ int LuaUnsyncedRead::GetGroundDecalTextures(lua_State* L)
 /***
  *
  * @function Spring.SetGroundDecalTextureParams
+ * @x_section decals
  * @param decalID integer
  * @return number? texWrapDistance If non-zero, sets the mode to repeat the texture along the left-right direction of the decal every texWrapFactor elmos.
  * @return number texTraveledDistance Shifts the texture repetition defined by texWrapFactor so the texture of a next line in the continuous multiline can start where the previous finished. For that it should collect all elmo lengths of the previously set multiline segments.
@@ -4739,6 +4740,7 @@ int LuaUnsyncedRead::GetGroundDecalTextureParams(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalAlpha
+ * @x_section decals
  * @param decalID integer
  * @return number? alpha Between 0 and 1
  * @return number alphaFalloff Between 0 and 1, per second
@@ -4762,6 +4764,7 @@ int LuaUnsyncedRead::GetGroundDecalAlpha(lua_State* L)
  *
  * If all three equal 0, the decal follows the normals of ground at midpoint
  *
+ * @x_section decals
  * @param decalID integer
  * @return number? normal.x
  * @return number normal.y
@@ -4781,11 +4784,12 @@ int LuaUnsyncedRead::GetGroundDecalNormal(lua_State* L)
 	return 3;
 }
 
-/***
+/*** Get the current tint of a ground decal.
+ * 
+ * A color of (0.5, 0.5, 0.5, 0.5) is effectively no tint
  *
  * @function Spring.GetGroundDecalTint
- * Gets the tint of the ground decal.
- * A color of (0.5, 0.5, 0.5, 0.5) is effectively no tint
+ * @x_section decals
  * @param decalID integer
  * @return number? tintR
  * @return number tintG
@@ -4808,10 +4812,10 @@ int LuaUnsyncedRead::GetGroundDecalTint(lua_State* L)
 	return 4;
 }
 
-/***
+/*** Get other parameters for a ground decal
  *
  * @function Spring.GetGroundDecalMisc
- * Returns less important parameters of a ground decal
+ * @x_section decals
  * @param decalID integer
  * @return number? dotElimExp
  * @return number refHeight
@@ -4834,12 +4838,12 @@ int LuaUnsyncedRead::GetGroundDecalMisc(lua_State* L)
 	return 5;
 }
 
-/***
- *
- * @function Spring.GetGroundDecalCreationFrame
+/*** Get the creation frame settings for a decal
  *
  * Min can be not equal to max for "gradient" style decals, e.g. unit tracks
  *
+ * @function Spring.GetGroundDecalCreationFrame
+ * @x_section decals
  * @param decalID integer
  * @return number? creationFrameMin
  * @return number creationFrameMax
@@ -4860,6 +4864,7 @@ int LuaUnsyncedRead::GetGroundDecalCreationFrame(lua_State* L)
 
 /***
  * @function Spring.GetGroundDecalOwner
+ * @x_section decals
  * @param decalID integer
  * @return integer? value If owner is a unit, then this is `unitID`, if owner is
  * a feature it is `featureID + MAX_UNITS`. If there is no owner, then `nil`.
@@ -4882,6 +4887,7 @@ int LuaUnsyncedRead::GetGroundDecalOwner(lua_State* L)
 /***
  *
  * @function Spring.GetGroundDecalType
+ * @x_section decals
  * @param decalID integer
  * @return "explosion"|"plate"|"lua"|"track"|"unknown"|nil type
  */

@@ -99,7 +99,7 @@
  *       ["air"]          = 30
  *     }
  * ```
- * @field armorTypes table<string|integer, integer|string> (bidirectional)
+ * @field armorTypes table<string|integer,integer|string> (bidirectional)
  * ```lua
  *     example: {
  *       [1]  = amphibious,   [2] = anniddm,     [3] = antibomber,
