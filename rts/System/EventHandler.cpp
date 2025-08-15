@@ -580,6 +580,12 @@ void CEventHandler::TeamDied(int teamID)
 	ITERATE_EVENTCLIENTLIST(TeamDied, teamID);
 }
 
+bool CEventHandler::TeamResourceExcess(int teamID, const SResourcePack &excess)
+{
+	ZoneScoped;
+	return ControlIterateDefFalse(listTeamResourceExcess, &CEventClient::TeamResourceExcess, teamID, excess);
+}
+
 void CEventHandler::TeamChanged(int teamID)
 {
 	ZoneScoped;

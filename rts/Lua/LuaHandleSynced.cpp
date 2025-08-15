@@ -1219,6 +1219,38 @@ bool CSyncedLuaHandle::AllowResourceTransfer(int oldTeam, int newTeam, const cha
 	return allow;
 }
 
+/*** Called when excess resources are added.
+ *
+ * @function SyncedCallins:TeamResourceExcess
+ * @param teamID integer
+ * @param amountMetal number
+ * @param amountEnergy number
+ * @return boolean whether or not Lua handled the event
+ */
+bool CSyncedLuaHandle::TeamResourceExcess(int teamID, const SResourcePack& excess)
+{
+	RECOIL_DETAILED_TRACY_ZONE;
+	LUA_CALL_IN_CHECK(L, true);
+	luaL_checkstack(L, 3 + excess.MAX_RESOURCES, __func__);
+
+	static const LuaHashString cmdStr(__func__);
+	if (!cmdStr.GetGlobalFunc(L))
+		return false;
+
+	lua_pushnumber(L, teamID);
+	for (int i = 0; i < excess.MAX_RESOURCES; ++i)
+		lua_pushnumber(L, excess[i]);
+
+	// call the function
+	if (!RunCallIn(L, cmdStr, 1 + excess.MAX_RESOURCES, 1))
+		return false;
+
+	// get the results
+	const bool handled = luaL_optboolean(L, -1, false);
+	lua_pop(L, 1);
+	return handled;
+}
+
 
 /*** Determines if this unit can be controlled directly in FPS view.
  *

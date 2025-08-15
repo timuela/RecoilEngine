@@ -155,8 +155,11 @@ void CTeam::AddMetal(float amount, bool useIncomeMultiplier)
 	if (res.metal <= resStorage.metal)
 		return;
 
-	resDelayedShare.metal += (res.metal - resStorage.metal);
+	const SResourcePack excess = {res.metal - resStorage.metal, 0.0f};
 	res.metal = resStorage.metal;
+
+	if (!eventHandler.TeamResourceExcess(teamNum, excess))
+		resDelayedShare += excess;
 }
 
 void CTeam::AddEnergy(float amount, bool useIncomeMultiplier)
@@ -168,10 +171,14 @@ void CTeam::AddEnergy(float amount, bool useIncomeMultiplier)
 	res.energy += amount;
 	resIncome.energy += amount;
 
-	if (res.energy > resStorage.energy) {
-		resDelayedShare.energy += (res.energy - resStorage.energy);
-		res.energy = resStorage.energy;
-	}
+	if (res.energy <= resStorage.energy)
+		return;
+
+	const SResourcePack excess = {0.0f, res.energy - resStorage.energy};
+	res.energy = resStorage.energy;
+
+	if (!eventHandler.TeamResourceExcess(teamNum, excess))
+		resDelayedShare += excess;
 }
 
 

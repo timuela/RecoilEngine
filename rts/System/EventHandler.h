@@ -17,6 +17,7 @@ struct Command;
 struct BuildInfo;
 class LuaMaterial;
 struct WeaponDef;
+struct SResourcePack;
 
 class CEventHandler
 {
@@ -60,6 +61,8 @@ class CEventHandler
 
 		void TeamDied(int teamID);
 		void TeamChanged(int teamID);
+		bool TeamResourceExcess(int teamID, const SResourcePack& excess);
+
 		void PlayerChanged(int playerID);
 		void PlayerAdded(int playerID);
 		void PlayerRemoved(int playerID, int reason);

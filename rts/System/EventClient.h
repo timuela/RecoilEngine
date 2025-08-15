@@ -35,6 +35,7 @@ struct BuildInfo;
 struct FeatureDef;
 class LuaMaterial;
 struct WeaponDef;
+struct SResourcePack;
 
 #ifndef zipFile
 	// might be defined through zip.h already
@@ -122,6 +123,8 @@ class CEventClient
 
 		virtual void TeamDied(int teamID) {}
 		virtual void TeamChanged(int teamID) {}
+		virtual bool TeamResourceExcess(int teamID, const SResourcePack& excess) { return false; }
+
 		virtual void PlayerChanged(int playerID) {}
 		virtual void PlayerAdded(int playerID) {}
 		virtual void PlayerRemoved(int playerID, int reason) {}
