@@ -9,6 +9,7 @@
 #include "Sim/Misc/DamageArray.h"
 #include "Sim/Misc/GroundBlockingObjectMap.h"
 #include "Sim/MoveTypes/MoveDefHandler.h"
+#include "Rendering/Models/LocalModelPiece.hpp"
 #include "Game/GameHelper.h"
 #include "System/SpringMath.h"
 #include "System/Quaternion.h"
@@ -427,6 +428,15 @@ void CSolidObject::UpdateDirVectors(const float3& uDir)
 	frontdir = quat * fDir;
 	rightdir = quat * rDir;
 	updir = uDir;
+}
+
+const CollisionVolume* CSolidObject::GetCollisionVolume(const LocalModelPiece* lmp) const {
+	if (lmp == nullptr)
+		return &collisionVolume;
+	if (!collisionVolume.DefaultToPieceTree())
+		return &collisionVolume;
+
+	return (lmp->GetCollisionVolume());
 }
 
 void CSolidObject::ForcedSpin(const float3& zdir)

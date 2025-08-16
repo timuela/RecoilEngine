@@ -11,7 +11,7 @@
 #include "Rendering/Env/IWater.h"
 #include "Rendering/GL/myGL.h"
 #include "Rendering/Common/ModelDrawerHelpers.h"
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/LocalModel.hpp"
 #include "Rendering/Shaders/Shader.h"
 #include "Rendering/ShadowHandler.h"
 #include "Sim/Misc/GlobalConstants.h" // MAX_TEAMS

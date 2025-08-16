@@ -1,17 +1,16 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef SOLID_OBJECT_H
-#define SOLID_OBJECT_H
+#pragma once
 
 #include <bit>
 
 #include "WorldObject.h"
 #include "Lua/LuaRulesParams.h"
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/LocalModel.hpp"
 #include "Sim/Misc/CollisionVolume.h"
 #include "System/Matrix44f.h"
 #include "System/type2.h"
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 #include "System/Misc/BitwiseEnum.h"
 #include "System/Sync/SyncedFloat3.h"
 #include "System/Sync/SyncedPrimitive.h"
@@ -189,14 +188,7 @@ public:
 	CMatrix44f ComposeMatrix(const float3& p) const { return (CMatrix44f(p, -rightdir, updir, frontdir)); }
 	virtual CMatrix44f GetTransformMatrix(bool synced = false, bool fullread = false) const = 0;
 
-	const CollisionVolume* GetCollisionVolume(const LocalModelPiece* lmp) const {
-		if (lmp == nullptr)
-			return &collisionVolume;
-		if (!collisionVolume.DefaultToPieceTree())
-			return &collisionVolume;
-
-		return (lmp->GetCollisionVolume());
-	}
+	const CollisionVolume* GetCollisionVolume(const LocalModelPiece* lmp) const;
 
 	const LuaObjectMaterialData* GetLuaMaterialData() const { return (localModel.GetLuaMaterialData()); }
 	      LuaObjectMaterialData* GetLuaMaterialData()       { return (localModel.GetLuaMaterialData()); }
@@ -457,5 +449,3 @@ public:
 	// for units this equals unit->id, and for features feature->id + unitHandler.MaxUnits()
 	static int GetDeletingRefID() { return deletingRefID; }
 };
-
-#endif // SOLID_OBJECT_H

@@ -1,12 +1,11 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef SPRING_3DOPARSER_H
-#define SPRING_3DOPARSER_H
+#pragma once
 
 #include <vector>
 #include <string>
 
-#include "3DModel.h"
+#include "3DModelPiece.hpp"
 #include "IModelParser.h"
 
 #include "Rendering/Textures/3DOTextureHandler.h"
@@ -150,5 +149,3 @@ private:
 
 	unsigned int numPoolPieces = 0;
 };
-
-#endif // SPRING_3DOPARSER_H

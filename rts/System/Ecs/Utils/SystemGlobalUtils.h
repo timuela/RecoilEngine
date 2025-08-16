@@ -3,7 +3,7 @@
 #ifndef SYSTEM_GLOBAL_UTILS_H__
 #define SYSTEM_GLOBAL_UTILS_H__
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 //#include "System/Ecs/Components/SystemGlobalComponents.h"
 #include "System/creg/creg.h"
 

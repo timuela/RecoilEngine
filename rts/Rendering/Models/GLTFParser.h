@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstdint>
 
-#include "3DModel.h"
+#include "3DModelPiece.hpp"
 #include "IModelParser.h"
 
 namespace fastgltf {
@@ -13,6 +13,7 @@ namespace fastgltf {
 }
 
 struct Transform;
+struct S3DModel;
 
 struct GLTFPiece : public S3DModelPiece {
 	static constexpr size_t INVALID_NODE_INDEX = size_t(-1);

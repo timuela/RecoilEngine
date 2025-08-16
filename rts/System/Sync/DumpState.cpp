@@ -16,7 +16,7 @@
 #include "Game/GlobalUnsynced.h"
 #include "Game/GameVersion.h"
 #include "Net/GameServer.h"
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/3DModelPiece.hpp"
 #include "Rendering/Models/IModelParser.h"
 #include "Sim/Features/Feature.h"
 #include "Sim/Features/FeatureDef.h"

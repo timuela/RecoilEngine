@@ -3,7 +3,7 @@
 #ifndef SYSTEM_UTILS_H__
 #define SYSTEM_UTILS_H__
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 
 namespace SystemUtils {
 

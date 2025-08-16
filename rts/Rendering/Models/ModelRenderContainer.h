@@ -1,14 +1,13 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef MODEL_RENDER_CONTAINER_HDR
-#define MODEL_RENDER_CONTAINER_HDR
+#pragma once
 
 #define MDL_TYPE(o) (o->model->type)
 
 #include <array>
 #include <vector>
 
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/3DModel.hpp"
 #include "System/ContainerUtil.h"
 
 template<typename TObject>
@@ -114,6 +113,3 @@ public:
 
 	const ObjectBin& GetObjectBin(unsigned int idx) const { return bins[idx]; }
 };
-
-#endif
-
