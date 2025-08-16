@@ -3,7 +3,7 @@
 #ifndef ECS_DOUBLE_LINKED_LIST_H_
 #define ECS_DOUBLE_LINKED_LIST_H_
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 
 namespace ecs_dll {
 

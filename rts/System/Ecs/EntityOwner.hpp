@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "EcsMain.h"
+#include "EcsMain.hpp"
 #include "System/Threading/ThreadPool.h"
 #include "System/TemplateUtils.hpp"
 

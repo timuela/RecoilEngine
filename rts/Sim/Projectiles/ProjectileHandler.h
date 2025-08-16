@@ -1,12 +1,11 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef PROJECTILE_HANDLER_H
-#define PROJECTILE_HANDLER_H
+#pragma once
 
 #include <array>
 #include <vector>
 
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/3DModelDefs.hpp"
 #include "Rendering/Env/Particles/Classes/FlyingPiece.h"
 #include "System/float3.h"
 #include "System/FreeListMap.h"
@@ -131,8 +130,4 @@ inline CProjectile* CProjectileHandler::GetProjectileByID(int id)
 	return projectiles[synced][pos];
 }
 
-
-
 extern CProjectileHandler projectileHandler;
-
-#endif /* PROJECTILE_HANDLER_H */

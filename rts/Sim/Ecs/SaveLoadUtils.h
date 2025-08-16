@@ -5,7 +5,7 @@
 
 #include <sstream>
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 #include "System/Ecs/Utils/SystemGlobalUtils.h"
 #include "System/Ecs/Utils/SystemUtils.h"
 

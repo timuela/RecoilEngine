@@ -8,7 +8,7 @@
 #include "Sim/Path/QTPFS/PathManager.h"
 #include "Sim/Path/QTPFS/Registry.h"
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 #include "System/Ecs/Utils/SystemGlobalUtils.h"
 #include "System/TimeProfiler.h"
 #include "System/Log/ILog.h"

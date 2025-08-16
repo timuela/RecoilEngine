@@ -8,7 +8,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "3DModel.h"
+#include "3DModel.hpp"
 #include "System/UnorderedMap.hpp"
 
 

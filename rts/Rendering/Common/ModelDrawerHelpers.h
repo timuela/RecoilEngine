@@ -1,13 +1,16 @@
 #pragma once
 
+#include <array>
+
 #include "System/float4.h"
 //can't fwd-declare nested class
 #include "Rendering/Textures/S3OTextureHandler.h"
-#include "Rendering/Models/3DModel.h"
-
+#include "Rendering/Models/3DModelDefs.hpp"
 
 class float3;
 class CCamera;
+struct S3DModel;
+class CSolidObject;
 
 class CModelDrawerHelper {
 public:

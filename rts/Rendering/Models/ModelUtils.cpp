@@ -5,6 +5,8 @@
 #include <numeric>
 
 #include "3DModelLog.h"
+#include "3DModel.hpp"
+#include "3DModelPiece.hpp"
 #include "System/Misc/TracyDefs.h"
 #include "Lua/LuaParser.h"
 

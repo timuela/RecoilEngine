@@ -5,7 +5,7 @@
 
 #include <utility>
 
-#include "System/Ecs/EcsMain.h"
+#include "System/Ecs/EcsMain.hpp"
 
 template<class T>
 struct BasicClassComponentType {

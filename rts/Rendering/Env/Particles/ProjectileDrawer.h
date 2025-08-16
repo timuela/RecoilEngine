@@ -10,7 +10,7 @@
 #include "Rendering/GL/FBO.h"
 #include "Rendering/Shaders/ShaderHandler.h"
 #include "Rendering/Shaders/Shader.h"
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/3DModel.hpp"
 #include "Rendering/Models/ModelRenderContainer.h"
 #include "Rendering/DepthBufferCopy.h"
 #include "System/EventClient.h"

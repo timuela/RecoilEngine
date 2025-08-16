@@ -1,11 +1,10 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef ASS_PARSER_H
-#define ASS_PARSER_H
+#pragma once
 
 #include <vector>
 
-#include "3DModel.h"
+#include "3DModelPiece.hpp"
 #include "IModelParser.h"
 #include "System/float3.h"
 #include "System/type2.h"
@@ -119,5 +118,3 @@ private:
 	std::vector<SAssPiece> piecePool;
 	spring::mutex poolMutex;
 };
-
-#endif /* ASS_PARSER_H */

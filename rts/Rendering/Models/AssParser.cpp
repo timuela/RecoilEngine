@@ -1,7 +1,7 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
 #include "AssParser.h"
-#include "3DModel.h"
+#include "VertexData.hpp"
 #include "3DModelLog.h"
 #include "ModelUtils.h"
 #include "AssIO.h"
@@ -420,7 +420,7 @@ namespace Impl {
 				}
 
 				// vertex tex-coords per channel
-				for (uint32_t uvChanIndex = 0; uvChanIndex < NUM_MODEL_UVCHANNS; uvChanIndex++) {
+				for (uint32_t uvChanIndex = 0; uvChanIndex < SVertexData::NUM_MODEL_UVCHANNS; uvChanIndex++) {
 					if (!mesh->HasTextureCoords(uvChanIndex))
 						break;
 
@@ -892,7 +892,7 @@ void CAssParser::LoadPieceGeometry(SAssPiece* piece, const S3DModel* model, cons
 			}
 
 			// vertex tex-coords per channel
-			for (unsigned int uvChanIndex = 0; uvChanIndex < NUM_MODEL_UVCHANNS; uvChanIndex++) {
+			for (unsigned int uvChanIndex = 0; uvChanIndex < SVertexData::NUM_MODEL_UVCHANNS; uvChanIndex++) {
 				if (!mesh->HasTextureCoords(uvChanIndex))
 					break;
 

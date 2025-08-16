@@ -17,6 +17,8 @@
 #include "Lua/LuaHandleSynced.h"
 #include "Lua/LuaRules.h"
 #include "Lua/LuaUtils.h"
+#include "Rendering/Models/3DModelPiece.hpp"
+#include "Rendering/Models/LocalModelPiece.hpp"
 #include "Sim/Projectiles/ExplosionGenerator.h"
 #include "Sim/Units/UnitHandler.h"
 #include "Sim/Units/Unit.h"

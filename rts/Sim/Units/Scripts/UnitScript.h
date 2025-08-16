@@ -2,13 +2,12 @@
 
 /* heavily based on CobInstance.h */
 
-#ifndef UNIT_SCRIPT_H
-#define UNIT_SCRIPT_H
+#pragma once
 
 #include <string>
 #include <vector>
 
-#include "Rendering/Models/3DModel.h"
+#include "Rendering/Models/LocalModelPiece.hpp"
 #include "System/creg/creg_cond.h"
 
 
@@ -212,5 +211,3 @@ public:
 	virtual float TargetWeight(int weaponNum, const CUnit* targetUnit) = 0; // returns target weight
 	virtual void AnimFinished(AnimType type, int piece, int axis) = 0;
 };
-
-#endif // UNIT_SCRIPT_H

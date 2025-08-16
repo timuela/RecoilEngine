@@ -1,9 +1,8 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef S3O_PARSER_H
-#define S3O_PARSER_H
+#pragma once
 
-#include "3DModel.h"
+#include "3DModelPiece.hpp"
 #include "IModelParser.h"
 
 #include "System/type2.h"
@@ -51,8 +50,6 @@ public:
 	int primType = S3O_PRIMTYPE_TRIANGLES;
 };
 
-
-
 class CS3OParser: public IModelParser
 {
 public:
@@ -71,5 +68,3 @@ private:
 
 	unsigned int numPoolPieces = 0;
 };
-
-#endif /* S3O_PARSER_H */
