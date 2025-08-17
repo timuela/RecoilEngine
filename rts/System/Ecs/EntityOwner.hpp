@@ -1,6 +1,6 @@
 #pragma once
 
-#include <utility>
+#include <cassert>
 
 #include "EcsMain.hpp"
 #include "System/Threading/ThreadPool.h"
@@ -31,21 +31,25 @@ namespace ECS {
 
         template<typename T, typename... Args>
         T& Add(Args&&... args) {
+            assert(!registry.any_of<T>(entity));
             return registry.emplace<T>(entity, std::forward<Args>(args)...);
         }
 
         template<typename... T>
         decltype(auto) Add() {
+            assert(!registry.any_of<T...>(entity));
             return std::forward_as_tuple(registry.emplace<T>(entity)...);
         }
 
         template<typename... T>
         decltype(auto) Get() {
+            assert(registry.all_of<T...>(entity));
             return registry.get<T...>(entity);
         }
 
         template<typename... T>
         decltype(auto) Get() const {
+            assert(registry.all_of<T...>(entity));
             return registry.get<T...>(entity);
         }
 
@@ -56,13 +60,13 @@ namespace ECS {
 
         template<typename T>
         decltype(auto) Set(T&& val) {
-            auto& curr = registry.get<T>(entity);
-            curr = std::forward<T>(val);
-            return curr;
+            assert(registry.all_of<T...>(entity));
+            return registry.replace<T>(entity, std::forward<T>(val));
         }
 
         template<typename... T>
         void Remove() {
+            assert(registry.all_of<T...>(entity));
             registry.remove<T...>(entity);
         }
 

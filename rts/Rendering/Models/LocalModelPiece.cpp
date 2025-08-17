@@ -1,7 +1,5 @@
 #include "LocalModelPiece.hpp"
 
-#include <bitset>
-
 #include "3DModelPiece.hpp"
 #include "LocalModel.hpp"
 #include "Rendering/GL/myGL.h"
@@ -36,8 +34,42 @@ CR_REG_METADATA(LocalModelPiece, (
 	CR_IGNORED(lodDispLists) //FIXME GL idx!
 ))
 
+// Components
+
 ALIAS_COMPONENT(Position, float3);
 ALIAS_COMPONENT(Rotation, float3);
+
+template<typename AnimTypeTag>
+struct AnimInfo {
+	std::array<float, 3> speed{};
+	std::array<float, 3> dest{};     // means final position when turning or moving, final speed when spinning
+	uint32_t validX : 1 = 0;
+	uint32_t validY : 1 = 0;
+	uint32_t validZ : 1 = 0;
+	uint32_t doneX : 1 = 0;
+	uint32_t doneY : 1 = 0;
+	uint32_t doneZ : 1 = 0;
+	uint32_t hasWaitingX : 1 = 0;
+	uint32_t hasWaitingY : 1 = 0;
+	uint32_t hasWaitingZ : 1 = 0;
+};
+using AnimInfoMove   = AnimInfo<struct AnimTypeMove>;
+using AnimInfoRotate = AnimInfo<struct AnimTypeRotate>;
+
+struct AnimInfoSpin {
+	std::array<float, 3> speed{};
+	std::array<float, 3> dest{};     // means final position when turning or moving, final speed when spinning
+	std::array<float, 3> accel{};    // used for spinning, can be negative
+	uint32_t validX : 1 = 0;
+	uint32_t validY : 1 = 0;
+	uint32_t validZ : 1 = 0;
+	uint32_t doneX : 1 = 0;
+	uint32_t doneY : 1 = 0;
+	uint32_t doneZ : 1 = 0;
+	uint32_t hasWaitingX : 1 = 0;
+	uint32_t hasWaitingY : 1 = 0;
+	uint32_t hasWaitingZ : 1 = 0;
+};
 
 /** ****************************************************************************************************
  * LocalModelPiece
@@ -60,7 +92,8 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 {
 	assert(piece != nullptr);
 
-	auto[pos, rot] = lmpe.Add<Position, Rotation>();
+	auto [aim, air, ais] = lmpe.Add<AnimInfoMove, AnimInfoRotate, AnimInfoSpin>();
+	auto [pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
 
 	dir = piece->GetEmitDir();
