@@ -24,14 +24,16 @@ struct BasicComponentType<entt::entity> {
 
 #define ALIAS_COMPONENT_DEF(Component, T, DefaultValue) \
 struct Component : public BasicComponentType<T> { \
-    Component() { value = DefaultValue; } \
+    Component() { value = T { DefaultValue }; } \
     Component(T val) { value = std::move(val); } \
     ~Component() = default; \
     Component(const Component &) = default; \
     Component& operator=(const Component &) = default; \
-    Component(Component &&) = default; \
-    Component& operator=(Component &&) = default; \
-};
+    Component(Component &&) noexcept = default; \
+    Component& operator=(Component &&) noexcept = default; \
+    operator const T&() const { return value; } \
+    operator       T&()       { return value; } \
+}
 #define ALIAS_COMPONENT(Component, T) \
 struct Component : public BasicComponentType<T> { \
     Component() = default; \
@@ -39,9 +41,11 @@ struct Component : public BasicComponentType<T> { \
     ~Component() = default; \
     Component(const Component &) = default; \
     Component& operator=(const Component &) = default; \
-    Component(Component &&) = default; \
-    Component& operator=(Component &&) = default; \
-};
+    Component(Component &&) noexcept = default; \
+    Component& operator=(Component &&) noexcept = default; \
+    operator const T&() const { return value; } \
+    operator       T&()       { return value; } \
+}
 #define ALIAS_CLASS_COMPONENT(Component, T) \
 struct Component : public BasicClassComponentType<T> { \
     Component() = default; \
@@ -49,9 +53,11 @@ struct Component : public BasicClassComponentType<T> { \
     ~Component() = default; \
     Component(const Component &) = default; \
     Component& operator=(const Component &) = default; \
-    Component(Component &&) = default; \
-    Component& operator=(Component &&) = default; \
-};
+    Component(Component &&) noexcept = default; \
+    Component& operator=(Component &&) noexcept = default; \
+    operator const T&() const { return value; } \
+    operator       T&()       { return value; } \
+}
 #define ALIAS_COMPONENT_LIST_RESERVE(Component, T, RESERVE) \
 struct Component : public BasicClassComponentType<T> { \
     Component() { value.reserve(RESERVE); } \
@@ -59,9 +65,11 @@ struct Component : public BasicClassComponentType<T> { \
     ~Component() = default; \
     Component(const Component &) = default; \
     Component& operator=(const Component &) = default; \
-    Component(Component &&) = default; \
-    Component& operator=(Component &&) = default; \
-};
-#define VOID_COMPONENT(Component) struct Component {};
+    Component(Component &&) noexcept = default; \
+    Component& operator=(Component &&) noexcept = default; \
+    operator const T&() const { return value; } \
+    operator       T&()       { return value; } \
+}
+#define VOID_COMPONENT(Component) struct Component {}
 
 #endif

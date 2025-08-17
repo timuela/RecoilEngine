@@ -1,15 +1,18 @@
 #include "LocalModelPiece.hpp"
 
+#include <bitset>
+
 #include "3DModelPiece.hpp"
 #include "LocalModel.hpp"
 #include "Rendering/GL/myGL.h"
+#include "System/Ecs/Components/BaseComponents.h"
 #include "System/Misc/TracyDefs.h"
 
 CR_BIND(LocalModelPiece, )
 CR_REG_METADATA(LocalModelPiece, (
 	CR_MEMBER(prevModelSpaceTra),
-	CR_MEMBER(pos),
-	CR_MEMBER(rot),
+	//CR_MEMBER(pos),
+	//CR_MEMBER(rot),
 	CR_MEMBER(dir),
 	CR_MEMBER(colvol),
 	CR_MEMBER(scriptSetVisible),
@@ -33,6 +36,9 @@ CR_REG_METADATA(LocalModelPiece, (
 	CR_IGNORED(lodDispLists) //FIXME GL idx!
 ))
 
+ALIAS_COMPONENT(Position, float3);
+ALIAS_COMPONENT(Rotation, float3);
+
 /** ****************************************************************************************************
  * LocalModelPiece
  */
@@ -54,7 +60,9 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 {
 	assert(piece != nullptr);
 
+	auto[pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
+
 	dir = piece->GetEmitDir();
 
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
@@ -74,17 +82,37 @@ void LocalModelPiece::SetDirty() {
 	}
 }
 
-void LocalModelPiece::SetPosOrRot(const float3& src, float3& dst) {
+const float3& LocalModelPiece::GetPosition() const { return lmpe.Get<Position>(); }
+const float3& LocalModelPiece::GetRotation() const { return lmpe.Get<Rotation>(); }
+
+void LocalModelPiece::SetPosition(const float3& p) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (blockScriptAnims)
 		return;
-	if (!dirty && !dst.same(src)) {
+
+	auto& pos = lmpe.Get<Position>();
+	if (!dirty && !p.same(pos)) {
 		SetDirty();
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
 	}
 
-	dst = src;
+	pos = p;
+}
+
+void LocalModelPiece::SetRotation(const float3& r) {
+	RECOIL_DETAILED_TRACY_ZONE;
+	if (blockScriptAnims)
+		return;
+
+	auto& rot = lmpe.Get<Rotation>();
+	if (!dirty && !r.same(rot)) {
+		SetDirty();
+		assert(localModel);
+		localModel->SetBoundariesNeedsRecalc();
+	}
+
+	rot = r;
 }
 
 void LocalModelPiece::ResetWasUpdated() const
@@ -152,6 +180,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 		wasUpdated[0] = true;  //update for current frame
 		updateChildTransform = true;
 
+		auto [pos, rot] = lmpe.Get<Position, Rotation>();
 		pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 	}
 
@@ -178,6 +207,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	dirty = false;
 	wasUpdated[0] = true;  //update for current frame
 
+	auto [pos, rot] = lmpe.Get<Position, Rotation>();
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 
 	if (parent != nullptr)

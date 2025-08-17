@@ -45,8 +45,20 @@ namespace ECS {
         }
 
         template<typename... T>
+        decltype(auto) Get() const {
+            return registry.get<T...>(entity);
+        }
+
+        template<typename... T>
         bool Has() const {
             return registry.all_of<T...>(entity);
+        }
+
+        template<typename T>
+        decltype(auto) Set(T&& val) {
+            auto& curr = registry.get<T>(entity);
+            curr = std::forward<T>(val);
+            return curr;
         }
 
         template<typename... T>

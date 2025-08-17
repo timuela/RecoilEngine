@@ -5,12 +5,16 @@
 #include <array>
 #include <cstdint>
 #include "System/Transform.hpp"
+#include "System/Ecs/EntityOwner.hpp"
 #include "Sim/Misc/CollisionVolume.h"
 #include "System/creg/creg_cond.h"
 
 
 struct S3DModelPiece;
 struct LocalModel;
+struct LocalModelPiece;
+
+using LocalModelPieceEntity = ECS::EntityOwner<LocalModelPiece>;
 
 /**
  * LocalModel
@@ -55,11 +59,9 @@ struct LocalModelPiece
 
 	bool GetEmitDirPos(float3& emitPos, float3& emitDir) const;
 
-
 	void SetDirty();
-	void SetPosOrRot(const float3& src, float3& dst); // anim-script only
-	void SetPosition(const float3& p) { SetPosOrRot(p, pos); } // anim-script only
-	void SetRotation(const float3& r) { SetPosOrRot(r, rot); } // anim-script only
+	void SetPosition(const float3& p); // anim-script only
+	void SetRotation(const float3& r); // anim-script only
 
 	void SetRotationNoInterpolation(bool noInterpolate) { noInterpolation[0] = noInterpolate; }
 	void SetPositionNoInterpolation(bool noInterpolate) { noInterpolation[1] = noInterpolate; }
@@ -83,8 +85,8 @@ struct LocalModelPiece
 		return false;
 	}
 
-	const float3& GetPosition() const { return pos; }
-	const float3& GetRotation() const { return rot; }
+	const float3& GetPosition() const;
+	const float3& GetRotation() const;
 
 	const float3& GetDirection() const { return dir; }
 
@@ -102,9 +104,12 @@ struct LocalModelPiece
 private:
 	Transform prevModelSpaceTra;
 
-	//entt::entity entity = entt::null;
-	float3 pos;      // translation relative to parent LMP, *INITIALLY* equal to original->offset
-	float3 rot;      // orientation relative to parent LMP, in radians (updated by scripts)
+	LocalModelPieceEntity lmpe; /*
+		Components:
+		* Position - translation relative to parent LMP, *INITIALLY* equal to original->offset
+		* Rotation - orientation relative to parent LMP, in radians (updated by scripts)
+	*/
+
 	float3 dir;      // cached copy of original->GetEmitDir()
 
 	mutable Transform pieceSpaceTra;  // transform relative to parent LMP (SYNCED), combines <pos> and <rot>
