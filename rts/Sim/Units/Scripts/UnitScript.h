@@ -54,9 +54,9 @@ protected:
 	bool hasRockUnit;
 	bool hasStartBuilding;
 
-	bool MoveToward(float& cur, float dest, float speed);
-	bool TurnToward(float& cur, float dest, float speed);
-	bool DoSpin(float& cur, float dest, float& speed, float accel, int divisor);
+	static bool MoveToward(float& cur, float dest, float speed);
+	static bool TurnToward(float& cur, float dest, float speed);
+	static bool DoSpin(float& cur, float dest, float& speed, float accel, int divisor);
 
 	AnimContainerTypeIt FindAnim(AnimType type, int piece, int axis);
 	void RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoIt);

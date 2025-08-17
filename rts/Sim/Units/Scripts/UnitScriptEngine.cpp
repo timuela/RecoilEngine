@@ -129,6 +129,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	cobEngine->Tick(deltaTime);
 
+	/*
 	// tick all (COB or LUS) script instances that have registered themselves as animating
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT)");
@@ -151,6 +152,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			i++;
 		}
 	}
+	*/
 
 	currentScript = nullptr;
 	cobEngine->RunDeferredCallins();

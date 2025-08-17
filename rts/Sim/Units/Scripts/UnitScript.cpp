@@ -7,6 +7,7 @@
 #include "CobFile.h"
 #include "CobInstance.h"
 #include "UnitScriptEngine.h"
+#include "AnimComponents.hpp"
 
 #ifndef _CONSOLE
 
@@ -292,10 +293,8 @@ void CUnitScript::RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoI
 
 	// If this was the last animation, remove from currently animating list
 	// FIXME: this could be done in a cleaner way
-	if (HaveAnimations())
-		return;
-
-	unitScriptEngine->RemoveInstance(this);
+	if (!HaveAnimations())
+		unitScriptEngine->RemoveInstance(this);
 }
 
 

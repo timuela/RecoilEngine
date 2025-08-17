@@ -54,6 +54,16 @@ namespace ECS {
         }
 
         template<typename... T>
+        decltype(auto) TryGet() {
+            return registry.try_get<T...>(entity);
+        }
+
+        template<typename... T>
+        decltype(auto) TryGet() const {
+            return registry.try_get<T...>(entity);
+        }
+
+        template<typename... T>
         bool Has() const {
             return registry.all_of<T...>(entity);
         }
@@ -72,59 +82,84 @@ namespace ECS {
 
         auto Entity() const { return entity; }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static void ForEachView(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
-            auto items = registry.view<Components...>(excl);
-            for (auto entity : items) {
-                func(entity, items.template get<Components>(entity)...);
+        template<typename... Components, typename... ExcludedComponents, typename Func>
+        static void ForEachView(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.view<Components...>(excl);
+            for (auto entity : entities) {
+                func(entity, entities.template get<Components>(entity)...);
             }
         }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static auto ForEachViewAsync(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
+        template<typename... Components, typename... ExcludedComponents, typename Func>
+        static auto ForEachViewAsync(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
             // copy excl and func on purpose
             return ThreadPool::Enqueue([excl, func]() {
-                auto items = registry.view<Components...>(excl);
-                for (auto entity : items) {
-                    func(entity, items.template get<Components>(entity)...);
+                auto entities = registry.view<Components...>(excl);
+                for (auto entity : entities) {
+                    func(entity, entities.template get<Components>(entity)...);
                 }
             });
         }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static void ForEachViewParallel(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
-            auto items = registry.view<Components...>(excl);
-            for_mt_chunk(0, items.size(), [&items, &func](int i) {
-                const auto entity = items[i];
-                func(entity, items.template get<Components>(entity)...);
+        template<typename... Components, typename... ExcludedComponents, typename Func>
+        static void ForEachViewParallel(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.view<Components...>(excl);
+            for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
+                const auto entity = entities[i];
+                func(entity, entities.template get<Components>(entity)...);
             });
         }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static void ForEachGroup(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
-            auto items = registry.group<Components...>(excl);
-            for (auto entity : items) {
-                func(entity, items.template get<Components>(entity)...);
+        template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
+        static void ForEachGroup(Func&& func, entt::get_t<ObservedComponents...> obsv = {}, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.group<OwnedComponents...>(obsv, excl);
+            for (auto entity : entities) {
+                func(entity, entities.template get<OwnedComponents>(entity)...);
+            }
+        }
+        template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
+        static void ForEachGroup(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.group<OwnedComponents...>(excl);
+            for (auto entity : entities) {
+                func(entity, entities.template get<OwnedComponents>(entity)...);
             }
         }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static auto ForEachGroupAsync(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
+        template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
+        static auto ForEachGroupAsync(Func&& func, entt::get_t<ObservedComponents...> obsv = {}, entt::exclude_t<ExcludedComponents...> excl = {}) {
             // copy excl and func on purpose
             return ThreadPool::Enqueue([excl, func]() {
-                auto items = registry.group<Components...>(excl);
-                for (auto entity : items) {
-                    func(entity, items.template get<Components>(entity)...);
+                auto entities = registry.group<OwnedComponents...>(obsv, excl);
+                for (auto entity : entities) {
+                    func(entity, entities.template get<OwnedComponents>(entity)...);
+                }
+            });
+        }
+        template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
+        static auto ForEachGroupAsync(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            // copy excl and func on purpose
+            return ThreadPool::Enqueue([excl, func]() {
+                auto entities = registry.group<OwnedComponents...>(excl);
+                for (auto entity : entities) {
+                    func(entity, entities.template get<OwnedComponents>(entity)...);
                 }
             });
         }
 
-        template<typename... Components, typename... ExcludeComponents, typename Func>
-        static void ForEachGroupParallel(Func&& func, entt::exclude_t<ExcludeComponents...> excl = {}) {
-            auto items = registry.group<Components...>(excl);
-            for_mt_chunk(0, items.size(), [&items, &func](int i) {
-                const auto entity = items[i];
-                func(entity, items.template get<Components>(entity)...);
+        template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
+        static void ForEachGroupParallel(Func&& func, entt::get_t<ObservedComponents...> obsv = {}, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.group<OwnedComponents...>(obsv, excl);
+            for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
+                const auto entity = entities[i];
+                func(entity, entities.template get<OwnedComponents>(entity)...);
+            });
+        }
+        template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
+        static void ForEachGroupParallel(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
+            auto entities = registry.group<OwnedComponents...>(excl);
+            for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
+                const auto entity = entities[i];
+                func(entity, entities.template get<OwnedComponents>(entity)...);
             });
         }
 
