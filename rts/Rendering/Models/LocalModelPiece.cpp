@@ -39,37 +39,36 @@ CR_REG_METADATA(LocalModelPiece, (
 ALIAS_COMPONENT(Position, float3);
 ALIAS_COMPONENT(Rotation, float3);
 
-template<typename AnimTypeTag>
+template<typename AnimTypeTag, size_t AnimAxis>
 struct AnimInfo {
-	std::array<float, 3> speed{};
-	std::array<float, 3> dest{};     // means final position when turning or moving, final speed when spinning
-	uint32_t validX : 1 = 0;
-	uint32_t validY : 1 = 0;
-	uint32_t validZ : 1 = 0;
-	uint32_t doneX : 1 = 0;
-	uint32_t doneY : 1 = 0;
-	uint32_t doneZ : 1 = 0;
-	uint32_t hasWaitingX : 1 = 0;
-	uint32_t hasWaitingY : 1 = 0;
-	uint32_t hasWaitingZ : 1 = 0;
+	static constexpr size_t Axis = AnimAxis;
+	float speed{};
+	float dest{};     // means final position when turning or moving, final speed when spinning
+	bool done = false;
+	bool hasWaiting = false;
 };
-using AnimInfoMove   = AnimInfo<struct AnimTypeMove>;
-using AnimInfoRotate = AnimInfo<struct AnimTypeRotate>;
 
+using AnimInfoMoveX = AnimInfo<struct AnimTypeMove, 0>;
+using AnimInfoMoveY = AnimInfo<struct AnimTypeMove, 1>;
+using AnimInfoMoveZ = AnimInfo<struct AnimTypeMove, 2>;
+
+using AnimInfoRotateX = AnimInfo<struct AnimTypeRotate, 0>;
+using AnimInfoRotateY = AnimInfo<struct AnimTypeRotate, 1>;
+using AnimInfoRotateZ = AnimInfo<struct AnimTypeRotate, 2>;
+
+template<size_t AnimAxis>
 struct AnimInfoSpin {
-	std::array<float, 3> speed{};
-	std::array<float, 3> dest{};     // means final position when turning or moving, final speed when spinning
-	std::array<float, 3> accel{};    // used for spinning, can be negative
-	uint32_t validX : 1 = 0;
-	uint32_t validY : 1 = 0;
-	uint32_t validZ : 1 = 0;
-	uint32_t doneX : 1 = 0;
-	uint32_t doneY : 1 = 0;
-	uint32_t doneZ : 1 = 0;
-	uint32_t hasWaitingX : 1 = 0;
-	uint32_t hasWaitingY : 1 = 0;
-	uint32_t hasWaitingZ : 1 = 0;
+	static constexpr size_t Axis = AnimAxis;
+	float speed{};
+	float dest{};     // means final position when turning or moving, final speed when spinning
+	float accel{};    // used for spinning, can be negative
+	bool done = false;
+	bool hasWaiting = false;
 };
+
+using AnimInfoSpinX = AnimInfoSpin<0>;
+using AnimInfoSpinY = AnimInfoSpin<1>;
+using AnimInfoSpinZ = AnimInfoSpin<2>;
 
 /** ****************************************************************************************************
  * LocalModelPiece
@@ -92,7 +91,6 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 {
 	assert(piece != nullptr);
 
-	auto [aim, air, ais] = lmpe.Add<AnimInfoMove, AnimInfoRotate, AnimInfoSpin>();
 	auto [pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
 

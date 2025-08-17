@@ -128,6 +128,9 @@ namespace ECS {
             });
         }
 
+        static void Cleanup() {
+            registry = {};
+        }
     private:
         entt::entity entity{ entt::null };
         static inline entt::registry registry{};
