@@ -101,6 +101,8 @@ struct LocalModelPiece
 
 	void SavePrevModelSpaceTransform();
 	Transform GetEffectivePrevModelSpaceTransform() const;
+	const auto& GetLocalModelPieceEntity() const { return lmpe; }
+	      auto& GetLocalModelPieceEntity()       { return lmpe; }
 private:
 	Transform prevModelSpaceTra;
 
