@@ -70,12 +70,20 @@ public:
 	// subclass is responsible for populating this with script pieces
 	std::vector<LocalModelPiece*> pieces;
 
-	bool PieceExists(unsigned int scriptPieceNum) const {
+	bool PieceExists(uint32_t scriptPieceNum) const {
 		// NOTE: there can be NULL pieces present from the remapping in CobInstance
 		return ((scriptPieceNum < pieces.size()) && (pieces[scriptPieceNum] != nullptr));
 	}
 
-	LocalModelPiece* GetScriptLocalModelPiece(unsigned int scriptPieceNum) const {
+	LocalModelPiece* GetScriptLocalModelPieceSafe(uint32_t scriptPieceNum) const {
+		if (scriptPieceNum >= pieces.size())
+			return nullptr;
+
+		// may still return nullptr
+		return pieces[scriptPieceNum];
+	}
+
+	LocalModelPiece* GetScriptLocalModelPiece(uint32_t scriptPieceNum) const {
 		assert(PieceExists(scriptPieceNum));
 		return pieces[scriptPieceNum];
 	}

@@ -48,6 +48,7 @@
 #include "System/Log/ILog.h"
 #include "System/StringUtil.h"
 #include "System/Sound/ISoundChannels.h"
+#include "System/TemplateUtils.hpp"
 
 #include "System/Misc/TracyDefs.h"
 
@@ -273,6 +274,98 @@ CUnitScript::AnimContainerTypeIt CUnitScript::FindAnim(AnimType type, int piece,
 	const auto& pred = [&](const AnimInfo& ai) { return (ai.piece == piece && ai.axis == axis); };
 	const auto& iter = std::find_if(anims[type].begin(), anims[type].end(), pred);
 	return iter;
+}
+
+namespace Impl {
+	template<Concepts::AnimInfoType AnimInfoType>
+	void RemoveAnim(CUnitScript& self, LocalModelPieceEntity& lmpe, AnimInfoType* ai, int piece, int axis)
+	{
+		RECOIL_DETAILED_TRACY_ZONE;
+
+		if (!ai->flags[AnimInfoType::validX + axis])
+			return;
+
+		// We need to unblock threads waiting on this animation, otherwise they will be lost in the void
+		// NOTE: AnimFinished might result in new anims being added
+		if (ai->flags[AnimInfoType::hasWaitingX + axis]) {
+			self.AnimFinished(AnimInfoType::animType, piece, axis);
+			ai->flags[AnimInfoType::validX + axis] = false;
+		}
+
+		if (!ai->flags[AnimInfoType::validX] && !ai->flags[AnimInfoType::validY] && !ai->flags[AnimInfoType::validX]) {
+			lmpe.Remove<AnimInfoType>();
+		}
+	}
+
+	template<Concepts::AnimInfoType AnimInfoType>
+	void AddAnim(CUnitScript& self, int piece, int axis, float speed, float dest, float accel)
+	{
+		RECOIL_DETAILED_TRACY_ZONE;
+		auto* lmp = self->GetScriptLocalModelPieceSafe(piece);
+		if (!lmp) {
+			self.ShowUnitScriptError("[US::AddAnim] invalid script piece index");
+			return;
+		}
+
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
+
+		float destf = 0.0f;
+
+		if constexpr(std::is_same_v<AnimInfoType, AnimInfoMove>) {
+			destf = lmp->original->offset[axis] + dest;
+		}
+		else if constexpr (std::is_same_v<AnimInfoType, AnimInfoTurn>) {
+			// clamp destination (angle) for turn-anims
+			destf = ClampRad(dest);
+
+			// search for existing spin animation to remove it
+			if (auto* ai = lmpe.TryGet<AnimInfoSpin>(); ai != nullptr && ai->flags[AnimInfoType::validX + axis]) {
+				Impl::RemoveAnim(self, lmpe, ai, piece, axis);
+			}
+		}
+		else if constexpr (std::is_same_v<AnimInfoType, AnimInfoSpin>) {
+			destf = dest;
+
+			// search for existing turn animation to remove it
+			if (auto* ai = lmpe.TryGet<AnimInfoTurn>(); ai != nullptr && ai->flags[AnimInfoType::validX + axis]) {
+				Impl::RemoveAnim(self, lmpe, ai, piece, axis);
+			}
+		}
+		else {
+			static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
+		}
+
+		// search the requested animation type
+		auto& ai = lmpe.GetOrAdd<AnimInfoType>();
+		ai.dest [axis] = destf;
+		ai.speed[axis] = speed;
+		ai.accel[axis] = accel;
+		ai.flags[AnimInfoType::validX + axis] = true;
+	}
+
+	template<Concepts::AnimInfoType AnimInfoType>
+	bool NeedsWait(AnimType type, int piece, int axis)
+	{
+		RECOIL_DETAILED_TRACY_ZONE;
+		auto* lmp = self->GetScriptLocalModelPieceSafe(piece);
+		if (!lmp) {
+			self.ShowUnitScriptError("[US::AddAnim] invalid script piece index");
+			return;
+		}
+
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
+
+		// search the requested animation type
+		auto* ai = lmpe.TryGet<AnimInfoType>();
+		if (ai == nullptr)
+			return false;
+
+		if (ai->flags[AnimInfoType::doneX + axis])
+			return false;
+
+		ai->flags[AnimInfoType::hasWaitingX + axis] = true;
+		return true;
+	}
 }
 
 void CUnitScript::RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoIt)
