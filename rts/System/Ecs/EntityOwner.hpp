@@ -53,6 +53,16 @@ namespace ECS {
             return registry.get<T...>(entity);
         }
 
+        template<typename T, typename... Args>
+        decltype(auto) GetOrAdd(Args&&... args) {
+            return registry.get_or_emplace<T...>(entity, std::forward<Args>(args)...);
+        }
+
+        template<typename T, typename... Args>
+        decltype(auto) GetOrAdd(Args&&... args) const {
+            return registry.get_or_emplace<T...>(entity, std::forward<Args>(args)...);
+        }
+
         template<typename... T>
         decltype(auto) TryGet() {
             return registry.try_get<T...>(entity);
@@ -81,6 +91,11 @@ namespace ECS {
         }
 
         auto Entity() const { return entity; }
+
+        template<typename... T>
+        static void RemoveFromAll() {
+            registry.clear<T...>();
+        }
 
         template<typename... Components, typename... ExcludedComponents, typename Func>
         static void ForEachView(Func&& func, entt::exclude_t<ExcludedComponents...> excl = {}) {
