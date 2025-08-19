@@ -623,7 +623,7 @@ bool CCobThread::Tick()
 				r1 = GET_LONG_PC();
 				r2 = GET_LONG_PC();
 
-				if (cobInst->NeedsWait(CCobInstance::ATurn, r1, r2)) {
+				if (cobInst->NeedsWait(ATurn, r1, r2)) {
 					state = WaitTurn;
 					waitPiece = r1;
 					waitAxis = r2;
@@ -634,7 +634,7 @@ bool CCobThread::Tick()
 				r1 = GET_LONG_PC();
 				r2 = GET_LONG_PC();
 
-				if (cobInst->NeedsWait(CCobInstance::AMove, r1, r2)) {
+				if (cobInst->NeedsWait(AMove, r1, r2)) {
 					state = WaitMove;
 					waitPiece = r1;
 					waitAxis = r2;
@@ -817,7 +817,7 @@ void CCobThread::LuaCall()
 	retCode = luaArgs[0];
 }
 
-void CCobThread::AnimFinished(CUnitScript::AnimType type, int piece, int axis)
+void CCobThread::AnimFinished(AnimType type, int piece, int axis)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (piece != waitPiece || axis != waitAxis)

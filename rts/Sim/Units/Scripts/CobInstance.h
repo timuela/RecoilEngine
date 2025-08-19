@@ -42,7 +42,7 @@ protected:
 
 	int RealCall(int functionId, std::array<int, 1 + MAX_COB_ARGS>& args, ThreadCallbackType cb, int cbParam, int* retCode);
 
-	void ShowScriptError(const std::string& msg) override;
+	void ShowScriptError(const std::string& msg) const override;
 
 public:
 	CCobFile* cobFile;

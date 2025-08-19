@@ -49,7 +49,7 @@ public:
 	void Serialize(creg::ISerializer* s);
 
 protected:
-	void ShowScriptError(const std::string& msg) override;
+	void ShowScriptError(const std::string& msg) const override;
 
 	int UpdateCallIn();
 	void UpdateCallIn(const std::string& fname, int ref);

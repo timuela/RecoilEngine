@@ -744,7 +744,7 @@ void CCobInstance::PlayUnitSound(int snr, int attr)
 }
 
 
-void CCobInstance::ShowScriptError(const std::string& msg)
+void CCobInstance::ShowScriptError(const std::string& msg) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	cobEngine->ShowScriptError(msg);

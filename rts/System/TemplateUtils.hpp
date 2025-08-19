@@ -4,7 +4,10 @@
 #include <functional>
 #include <tuple>
 #include <variant>
+#include <utility>
 #include <type_traits>
+#include <stdexcept>
+
 
 #include "Matrix44f.h"
 #include "Transform.hpp"
@@ -50,20 +53,24 @@ namespace spring {
 		typedef std::remove_cv_t<std::remove_reference_t<T>> type;
 	};
 
-	// https://stackoverflow.com/questions/8194227/how-to-get-the-i-th-element-from-an-stdtuple-when-i-isnt-know-at-compile-time
-	template<std::size_t I = 0, typename FuncT, typename... Tp>
-	inline typename std::enable_if<I == sizeof...(Tp), void>::type
-		tuple_exec_at(int, std::tuple<Tp...>&, FuncT)
-	{}
-
-	template<std::size_t I = 0, typename FuncT, typename... Tp>
-	inline typename std::enable_if < I < sizeof...(Tp), void>::type
-		tuple_exec_at(int index, std::tuple<Tp...>& t, FuncT f)
+	// Generic dispatcher using lambda array, w/o recursion
+	template<typename Tuple, typename Func, std::size_t... Is>
+	inline void tuple_exec_at_impl(size_t index, Tuple& t, Func&& f, std::index_sequence<Is...>)
 	{
-		if (index == 0)
-			f(std::get<I>(t));
+		using FnType = void(*)(Tuple&, Func&&);
+		static constexpr FnType table[] = {
+			[](Tuple& tup, Func&& func) { func(std::get<Is>(tup)); }...
+		};
+		if (index < sizeof...(Is))
+			table[index](t, std::forward<Func>(f));
+		else
+			throw std::out_of_range("tuple index out of range");
+	}
 
-		tuple_exec_at<I + 1, FuncT, Tp...>(index - 1, t, f);
+	template<typename Tuple, typename Func>
+	inline void tuple_exec_at(size_t index, Tuple& t, Func&& f)
+	{
+		tuple_exec_at_impl(index, t, std::forward<Func>(f), std::make_index_sequence<std::tuple_size_v<Tuple>>{});
 	}
 
 	// https://blog.tartanllama.xyz/exploding-tuples-fold-expressions/

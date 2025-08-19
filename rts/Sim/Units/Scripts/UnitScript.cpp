@@ -3,6 +3,8 @@
 /* heavily based on CobInstance.cpp */
 #include "UnitScript.h"
 
+#include <utility>
+
 #include "CobDefines.h"
 #include "CobFile.h"
 #include "CobInstance.h"
@@ -81,6 +83,111 @@ CR_REG_METADATA_SUB(CUnitScript, AnimInfo,(
 	CR_MEMBER(hasWaiting)
 ))
 
+/******************************************************************************/
+
+namespace Impl {
+	// Helper: executes a function on a AnimComponentTuple element at a specific index
+	template<typename Func>
+	void exec_anim_type_axis(int animType, int animAxis, Func&& f)
+	{
+		static constexpr AnimComponentTuple tup;
+
+		const size_t idx = animType * AnimAxisCount + animAxis;
+#ifdef _DEBUG
+		spring::tuple_exec_at(idx, tup, [&f, at = animType, ax = animAxis](auto&& t) {
+			using AnimInfoType = std::decay_t<decltype(t)>;
+
+			static constexpr auto animType = AnimInfoType::animType;
+			static constexpr auto animAxis = AnimInfoType::animAxis;
+
+			assert(at == animType);
+			assert(ax == animAxis);
+
+			f(std::forward<decltype(t)>(t));
+		});
+#else
+		spring::tuple_exec_at(idx, tup, f);
+#endif
+	}
+
+	template<typename AnimInfoType>
+	void RemoveTypedAnim(CUnitScript& self, LocalModelPieceEntity& lmpe, AnimInfoType* ai, int piece) {
+		assert(ai);
+
+		static constexpr auto animType = AnimInfoType::animType;
+		static constexpr auto animAxis = AnimInfoType::animAxis;
+
+		static_assert(0 <= animType && animType < AnimTypeCount, "Unknown animation type");
+		static_assert(0 <= animAxis && animAxis < AnimAxisCount, "Unknown animation axis");
+
+		// We need to unblock threads waiting on this animation, otherwise they will be lost in the void
+		// NOTE: AnimFinished might result in new anims being added
+		if (ai->hasWaiting) {
+			self.AnimFinished(static_cast<AnimType>(animType), piece, animAxis);
+		}
+
+		lmpe.Remove<AnimInfoType>();
+	}
+
+	template<typename AnimInfoType>
+	void AddTypedAnim(CUnitScript& self, LocalModelPiece* lmp, LocalModelPieceEntity& lmpe, int piece, float speed, float dest, float accel) {
+		static constexpr auto animType = AnimInfoType::animType;
+		static constexpr auto animAxis = AnimInfoType::animAxis;
+
+		static_assert(0 <= animType && animType < AnimTypeCount, "Unknown animation type");
+		static_assert(0 <= animAxis && animAxis < AnimAxisCount, "Unknown animation axis");
+
+		float destf = 0.0f;
+
+		if constexpr (animType == AMove) {
+			destf = lmp->original->offset[animAxis] + dest;
+		}
+		else if constexpr (animType == ATurn) {
+			// clamp destination (angle) for turn-anims
+			destf = ClampRad(dest);
+
+			using AnimSpinComponentType = AnimInfoBase<ASpin, animAxis>;
+			// search for existing spin animation to remove it
+			if (auto* ai = lmpe.TryGet<AnimSpinComponentType>(); ai != nullptr) {
+				Impl::RemoveTypedAnim(self, lmpe, ai, piece);
+			}
+		}
+		else if constexpr (animType == ASpin) {
+			destf = dest;
+
+			using AnimTurnComponentType = AnimInfoBase<ATurn, animAxis>;
+			// search for existing turn animation to remove it
+			if (auto* ai = lmpe.TryGet<AnimTurnComponentType>(); ai != nullptr) {
+				Impl::RemoveTypedAnim(self, lmpe, ai, piece);
+			}
+		}
+		else {
+			static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
+		}
+
+		// search or emplace the requested animation type
+		auto& ai = lmpe.GetOrAdd<AnimInfoType>();
+		ai.dest = destf;
+		ai.speed = speed;
+		ai.accel = accel;
+		ai.done = false;
+	}
+
+	template<typename AnimInfoType>
+	void AddTypedAnim(CUnitScript& self, int piece, float speed, float dest, float accel)
+	{
+		auto* lmp = self.GetScriptLocalModelPieceSafe(piece);
+
+		if (!lmp) {
+			self.ShowUnitScriptError("[US::AddTypedAnim] invalid script piece index");
+			return;
+		}
+
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
+		AddTypedAnim<AnimInfoType>(self, lmp, lmpe, piece, speed, dest, accel);
+	}
+}
+
 
 CUnitScript::CUnitScript(CUnit* unit)
 	: unit(unit)
@@ -88,306 +195,33 @@ CUnitScript::CUnitScript(CUnit* unit)
 	, hasSetSFXOccupy(false)
 	, hasRockUnit(false)
 	, hasStartBuilding(false)
-{ }
+{}
 
-
-CUnitScript::~CUnitScript()
-{
-	// Remove us from possible animation ticking
-	if (!HaveAnimations())
-		return;
-
-	unitScriptEngine->RemoveInstance(this);
-}
-
-
-/******************************************************************************/
-
-
-/**
- * @brief Updates move animations
- * @param cur float value to update
- * @param dest float final value
- * @param speed float max increment per tick
- * @return returns true if destination was reached, false otherwise
- */
-bool CUnitScript::MoveToward(float& cur, float dest, float speed)
-{
-	const float delta = dest - cur;
-
-	if (math::fabsf(delta) <= speed) {
-		cur = dest;
-		return true;
-	}
-
-	cur += (speed * Sign(delta));
-	return false;
-}
-
-
-/**
- * @brief Updates turn animations
- * @param cur float value to update
- * @param dest float final value
- * @param speed float max increment per tick
- * @return returns true if destination was reached, false otherwise
- */
-bool CUnitScript::TurnToward(float& cur, float dest, float speed)
-{
-	assert(dest < math::TWOPI);
-	assert(cur  < math::TWOPI);
-
-	float delta = math::fmod(dest - cur + math::THREEPI, math::TWOPI) - math::PI;
-
-	if (math::fabsf(delta) <= speed) {
-		cur = dest;
-		return true;
-	}
-
-	cur = ClampRad(cur + speed * Sign(delta));
-	return false;
-}
-
-
-/**
- * @brief Updates spin animations
- * @param cur float value to update
- * @param dest float the final desired speed (NOT the final angle!)
- * @param speed float is updated if it is not equal to dest
- * @param divisor int is the deltatime, it is not added before the call because speed may have to be updated
- * @return true if the desired speed is 0 and it is reached, false otherwise
- */
-bool CUnitScript::DoSpin(float& cur, float dest, float& speed, float accel, int divisor)
-{
-	const float delta = dest - speed;
-
-	// Check if we are not at the final speed and
-	// make sure we do not go past desired speed
-	if (math::fabsf(delta) <= accel) {
-		if ((speed = dest) == 0.0f)
-			return true;
-	} else {
-		// accelerations are defined in speed/frame (at GAME_SPEED fps)
-		speed += (accel * (GAME_SPEED * 1.0f / divisor) * Sign(delta));
-	}
-
-	cur = ClampRad(cur + (speed / divisor));
-	return false;
-}
-
-/**
- * @brief The multithreaded first half of the original CUnitScript::Tick function first does the heavy lifting of calculating all
-			  new piece positions according to the animations
-*/
-void CUnitScript::TickAllAnims(int deltaTime)
-{
-	ZoneScoped;
-
-	// tick-functions; these never change address
-	static constexpr std::array<TickAnimFunc, ACount> TICK_ANIM_FUNCS = { &CUnitScript::TickTurnAnim, &CUnitScript::TickSpinAnim, &CUnitScript::TickMoveAnim };
-
-	const int tickRate = 1000 / deltaTime;
-
-	for (int animType = ATurn; animType < ACount; animType++) {
-		auto& currAnims = anims[animType];
-		const auto& currFunc = TICK_ANIM_FUNCS[animType];
-		auto& currDoneAnims = doneAnims[animType];
-
-		for (size_t i = 0; i < currAnims.size(); ) {
-			AnimInfo& ai = currAnims[i];
-			LocalModelPiece& lmp = *pieces[ai.piece];
-
-			if ((ai.done |= std::invoke(currFunc, this, tickRate, lmp, ai))) {
-				if (ai.hasWaiting)
-					currDoneAnims.emplace_back(ai);
-
-				ai = std::move(currAnims.back());
-				currAnims.pop_back();
-				continue;
-			}
-
-			++i;
-		}
-	}
-}
-
-/**
-* @brief The single threaded second half of this function does the removal of finished animations,
-		and it also is responsible for unblocking the listeners and returning whether we have animations or not.
-		This is not multi threaded as it guarantees that AnimFinished will be called in consistent order for
-		all anims for all participants of the simulation, and guarantees that the order of the animating
-		vector in CUnitScriptEngine::Tick is preserved.
-* @param deltaTime int delta time to update
-* @return true if there are still active animations
-*/
-bool CUnitScript::TickAnimFinished(int deltaTime)
-{
-	ZoneScoped;
-
-	// Tell listeners to unblock, and remove finished animations from the unit/script.
-	for (int animType = ATurn; animType <= AMove; animType++) {
-		auto& currDoneAnims = doneAnims[animType];
-		for (const auto& ai : currDoneAnims)
-			AnimFinished(static_cast<AnimType>(animType), ai.piece, ai.axis);
-
-		currDoneAnims.clear();
-	}
-
-	return (HaveAnimations());
-}
-
-bool CUnitScript::TickMoveAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai)
-{
-	float3 pos = lmp.GetPosition();
-	const bool ret = MoveToward(pos[ai.axis], ai.dest, ai.speed / tickRate);
-	lmp.SetPosition(pos);
-	lmp.SetPositionNoInterpolation(false);
-
-	return ret;
-}
-
-bool CUnitScript::TickTurnAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai)
-{
-	float3 rot = lmp.GetRotation();
-	rot[ai.axis] = ClampRad(rot[ai.axis]);
-	const bool ret = TurnToward(rot[ai.axis], ai.dest, ai.speed / tickRate);
-	lmp.SetRotation(rot);
-	lmp.SetRotationNoInterpolation(false);
-
-	return ret;
-}
-
-bool CUnitScript::TickSpinAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai)
-{
-	float3 rot = lmp.GetRotation();
-	rot[ai.axis] = ClampRad(rot[ai.axis]);
-	const bool ret = DoSpin(rot[ai.axis], ai.dest, ai.speed, ai.accel, tickRate);
-	lmp.SetRotation(rot);
-	lmp.SetRotationNoInterpolation(false);
-
-	return ret;
-}
-
-CUnitScript::AnimContainerTypeIt CUnitScript::FindAnim(AnimType type, int piece, int axis)
+void CUnitScript::RemoveAnim(AnimType type, int piece, int axis)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	const auto& pred = [&](const AnimInfo& ai) { return (ai.piece == piece && ai.axis == axis); };
-	const auto& iter = std::find_if(anims[type].begin(), anims[type].end(), pred);
-	return iter;
-}
 
-namespace Impl {
-	template<Concepts::AnimInfoType AnimInfoType>
-	void RemoveAnim(CUnitScript& self, LocalModelPieceEntity& lmpe, AnimInfoType* ai, int piece, int axis)
-	{
-		RECOIL_DETAILED_TRACY_ZONE;
-
-		if (!ai->flags[AnimInfoType::validX + axis])
-			return;
-
-		// We need to unblock threads waiting on this animation, otherwise they will be lost in the void
-		// NOTE: AnimFinished might result in new anims being added
-		if (ai->flags[AnimInfoType::hasWaitingX + axis]) {
-			self.AnimFinished(AnimInfoType::animType, piece, axis);
-			ai->flags[AnimInfoType::validX + axis] = false;
-		}
-
-		if (!ai->flags[AnimInfoType::validX] && !ai->flags[AnimInfoType::validY] && !ai->flags[AnimInfoType::validX]) {
-			lmpe.Remove<AnimInfoType>();
-		}
+	auto* lmp = GetScriptLocalModelPieceSafe(piece);
+	if (!lmp) {
+		ShowUnitScriptError("[US::RemoveAnim] invalid script piece index");
+		return;
 	}
 
-	template<Concepts::AnimInfoType AnimInfoType>
-	void AddAnim(CUnitScript& self, int piece, int axis, float speed, float dest, float accel)
-	{
-		RECOIL_DETAILED_TRACY_ZONE;
-		auto* lmp = self->GetScriptLocalModelPieceSafe(piece);
-		if (!lmp) {
-			self.ShowUnitScriptError("[US::AddAnim] invalid script piece index");
-			return;
-		}
+	Impl::exec_anim_type_axis(type, axis, [&](auto&& t) {
+		using AnimInfoType = std::decay_t<decltype(t)>;
+
+		static constexpr auto animType = AnimInfoType::animType;
+		static constexpr auto animAxis = AnimInfoType::animAxis;
+
+		static_assert(0 <= animType && animType < AnimTypeCount, "Unknown animation type");
+		static_assert(0 <= animAxis && animAxis < AnimAxisCount, "Unknown animation axis");
 
 		auto& lmpe = lmp->GetLocalModelPieceEntity();
 
-		float destf = 0.0f;
-
-		if constexpr(std::is_same_v<AnimInfoType, AnimInfoMove>) {
-			destf = lmp->original->offset[axis] + dest;
+		if (auto* ai = lmpe.TryGet<AnimInfoType>(); ai != nullptr) {
+			Impl::RemoveTypedAnim(*this, lmpe, ai, piece);
 		}
-		else if constexpr (std::is_same_v<AnimInfoType, AnimInfoTurn>) {
-			// clamp destination (angle) for turn-anims
-			destf = ClampRad(dest);
-
-			// search for existing spin animation to remove it
-			if (auto* ai = lmpe.TryGet<AnimInfoSpin>(); ai != nullptr && ai->flags[AnimInfoType::validX + axis]) {
-				Impl::RemoveAnim(self, lmpe, ai, piece, axis);
-			}
-		}
-		else if constexpr (std::is_same_v<AnimInfoType, AnimInfoSpin>) {
-			destf = dest;
-
-			// search for existing turn animation to remove it
-			if (auto* ai = lmpe.TryGet<AnimInfoTurn>(); ai != nullptr && ai->flags[AnimInfoType::validX + axis]) {
-				Impl::RemoveAnim(self, lmpe, ai, piece, axis);
-			}
-		}
-		else {
-			static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
-		}
-
-		// search the requested animation type
-		auto& ai = lmpe.GetOrAdd<AnimInfoType>();
-		ai.dest [axis] = destf;
-		ai.speed[axis] = speed;
-		ai.accel[axis] = accel;
-		ai.flags[AnimInfoType::validX + axis] = true;
-	}
-
-	template<Concepts::AnimInfoType AnimInfoType>
-	bool NeedsWait(AnimType type, int piece, int axis)
-	{
-		RECOIL_DETAILED_TRACY_ZONE;
-		auto* lmp = self->GetScriptLocalModelPieceSafe(piece);
-		if (!lmp) {
-			self.ShowUnitScriptError("[US::AddAnim] invalid script piece index");
-			return;
-		}
-
-		auto& lmpe = lmp->GetLocalModelPieceEntity();
-
-		// search the requested animation type
-		auto* ai = lmpe.TryGet<AnimInfoType>();
-		if (ai == nullptr)
-			return false;
-
-		if (ai->flags[AnimInfoType::doneX + axis])
-			return false;
-
-		ai->flags[AnimInfoType::hasWaitingX + axis] = true;
-		return true;
-	}
-}
-
-void CUnitScript::RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoIt)
-{
-	RECOIL_DETAILED_TRACY_ZONE;
-	if (animInfoIt == anims[type].end())
-		return;
-
-	AnimInfo& ai = *animInfoIt;
-
-	// We need to unblock threads waiting on this animation, otherwise they will be lost in the void
-	// NOTE: AnimFinished might result in new anims being added
-	if (ai.hasWaiting)
-		AnimFinished(type, ai.piece, ai.axis);
-
-	ai = anims[type].back();
-	anims[type].pop_back();
-
-	// If this was the last animation, remove from currently animating list
-	// FIXME: this could be done in a cleaner way
-	if (!HaveAnimations())
-		unitScriptEngine->RemoveInstance(this);
+	});
 }
 
 
@@ -397,118 +231,147 @@ void CUnitScript::RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoI
 void CUnitScript::AddAnim(AnimType type, int piece, int axis, float speed, float dest, float accel)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (!PieceExists(piece)) {
-		ShowUnitScriptError("[US::AddAnim] invalid script piece index");
-		return;
-	}
-
-	float destf = 0.0f;
-
-	if (type == AMove) {
-		destf = pieces[piece]->original->offset[axis] + dest;
-	} else {
-		// clamp destination (angle) for turn-anims
-		destf = mix(dest, ClampRad(dest), type == ATurn);
-	}
-
-	AnimContainerTypeIt animInfoIt;
-	AnimInfo* ai = nullptr;
-	AnimType overrideType = ANone;
-
-	// first find an animation of a type we override
-	// Turns override spins.. Not sure about the other way around? If so
-	// the system should probably be redesigned to only have two types of
-	// anims (turns and moves), with spin as a bool
-	switch (type) {
-		case ATurn: {
-			overrideType = ASpin;
-			animInfoIt = FindAnim(overrideType, piece, axis);
-		} break;
-		case ASpin: {
-			overrideType = ATurn;
-			animInfoIt = FindAnim(overrideType, piece, axis);
-		} break;
-		case AMove: {
-			// ensure we never remove an animation of this type
-			overrideType = AMove;
-			animInfoIt = anims[overrideType].end();
-		} break;
-		default: {
-		} break;
-	}
-	assert(overrideType >= 0);
-
-	if (animInfoIt != anims[overrideType].end())
-		RemoveAnim(overrideType, animInfoIt);
-
-	// now find an animation of our own type
-	animInfoIt = FindAnim(type, piece, axis);
-
-	if (animInfoIt == anims[type].end()) {
-		// If we were not animating before, inform the engine of this so it can schedule us
-		// FIXME: this could be done in a cleaner way
-		if (!HaveAnimations())
-			unitScriptEngine->AddInstance(this);
-
-		anims[type].emplace_back();
-		ai = &anims[type].back();
-		ai->piece = piece;
-		ai->axis = axis;
-	} else {
-		ai = &(*animInfoIt);
-	}
-
-	ai->dest  = destf;
-	ai->speed = speed;
-	ai->accel = accel;
-	ai->done = false;
+	Impl::exec_anim_type_axis(type, axis, [&](auto&& t) {
+		using AnimInfoType = std::decay_t<decltype(t)>;
+		Impl::AddTypedAnim<AnimInfoType>(*this, piece, speed, dest, accel);
+	});
 }
 
+bool CUnitScript::IsInAnimation(AnimType type, int piece, int axis) const
+{
+	bool isInAnim = false;
+
+	Impl::exec_anim_type_axis(type, axis, [&](auto&& t) {
+		using AnimInfoType = std::decay_t<decltype(t)>;
+
+		auto* lmp = GetScriptLocalModelPieceSafe(piece);
+
+		if (!lmp) {
+			ShowUnitScriptError("[US::IsInAnimation] invalid script piece index");
+			return;
+		}
+
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
+
+		isInAnim = lmpe.Has<AnimInfoType>();
+	});
+
+	return isInAnim;
+}
+
+//Returns true if there was an animation to listen to
+bool CUnitScript::NeedsWait(AnimType type, int piece, int axis) const
+{
+	RECOIL_DETAILED_TRACY_ZONE;
+
+	bool needsWait = false;
+
+	Impl::exec_anim_type_axis(type, axis, [&](auto&& t) {
+		using AnimInfoType = std::decay_t<decltype(t)>;
+
+		auto* lmp = GetScriptLocalModelPieceSafe(piece);
+
+		if (!lmp) {
+			ShowUnitScriptError("[US::NeedsWait] invalid script piece index");
+			return;
+		}
+
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
+
+		auto* ai = lmpe.TryGet<AnimInfoType>();
+		if (!ai)
+			return;
+
+		// if the animation is already finished, listening for
+		// it just adds some overhead since either the current
+		// or the next Tick will remove it and call UnblockAll
+		// (which calls AnimFinished for each listener)
+		//
+		// we could notify the listener here, but a cleaner way
+		// is to treat the animation as if it did not exist and
+		// simply disregard the WaitFor* (no side-effects)
+		//
+		// if (ai.hasWaiting)
+		// 		AnimFinished(ai.type, ai.piece, ai.axis);
+		if (!ai->done) {
+			ai->hasWaiting = true;
+			needsWait = true;
+		}
+	});
+
+	return needsWait;
+}
 
 void CUnitScript::Spin(int piece, int axis, float speed, float accel)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	auto animInfoIt = FindAnim(ASpin, piece, axis);
 
-	// if we are already spinning, we may have to decelerate to the new speed
-	if (animInfoIt != anims[ASpin].end()) {
-		AnimInfo* ai = &(*animInfoIt);
-		ai->dest = speed;
+	Impl::exec_anim_type_axis(ASpin, axis, [&](auto&& t) {
+		using AnimInfoType = std::decay_t<decltype(t)>;
 
-		if (accel > 0.0f) {
-			ai->accel = accel;
-		} else {
-			// Go there instantly. Or have a default accel?
-			ai->speed = speed;
-			ai->accel = 0.0f;
+		auto* lmp = GetScriptLocalModelPieceSafe(piece);
+		if (!lmp) {
+			ShowUnitScriptError("[US::Spin] invalid script piece index");
+			return;
 		}
 
-		return;
-	}
+		auto& lmpe = lmp->GetLocalModelPieceEntity();
 
-	// no acceleration means we start at desired speed instantly
-	if (accel <= 0.0f) {
-		AddAnim(ASpin, piece, axis,  speed, speed, 0.0f);
-	} else {
-		AddAnim(ASpin, piece, axis,   0.0f, speed, accel);
-	}
+		// if we are already spinning, we may have to decelerate to the new speed
+		if (auto* ai = lmpe.TryGet<AnimInfoType>(); ai != nullptr) {
+			ai->dest = speed;
+
+			if (accel > 0.0f) {
+				ai->accel = accel;
+			}
+			else {
+				// Go there instantly. Or have a default accel?
+				ai->speed = speed;
+				ai->accel = 0.0f;
+			}
+
+			return;
+		}
+
+		// no acceleration means we start at desired speed instantly
+		if (accel <= 0.0f) {
+			Impl::AddTypedAnim<AnimInfoType>(*this, lmp, lmpe, piece, speed, speed, 0.0f);
+		}
+		else {
+			Impl::AddTypedAnim<AnimInfoType>(*this, lmp, lmpe, piece, 0.0f, speed, accel);
+		}
+	});
 }
 
 
 void CUnitScript::StopSpin(int piece, int axis, float decel)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	auto animInfoIt = FindAnim(ASpin, piece, axis);
 
 	if (decel <= 0.0f) {
-		RemoveAnim(ASpin, animInfoIt);
+		RemoveAnim(ASpin, piece, axis);
 	} else {
-		if (animInfoIt == anims[ASpin].end())
-			return;
+		Impl::exec_anim_type_axis(ASpin, axis, [&](auto&& t) {
+			using AnimInfoType = std::decay_t<decltype(t)>;
 
-		AnimInfo* ai = &(*animInfoIt);
-		ai->dest = 0.0f;
-		ai->accel = decel;
+			static constexpr auto animType = AnimInfoType::animType;
+			static constexpr auto animAxis = AnimInfoType::animAxis;
+
+			static_assert(0 <= animType && animType < AnimTypeCount, "Unknown animation type");
+			static_assert(0 <= animAxis && animAxis < AnimAxisCount, "Unknown animation axis");
+
+			auto* lmp = GetScriptLocalModelPieceSafe(piece);
+			if (!lmp) {
+				ShowUnitScriptError("[US::StopSpin] invalid script piece index");
+				return;
+			}
+
+			auto& lmpe = lmp->GetLocalModelPieceEntity();
+			auto& ai = lmpe.GetOrAdd<AnimInfoType>();
+
+			ai.dest = 0.0f;
+			ai.accel = decel;
+		});
 	}
 }
 
@@ -840,36 +703,6 @@ void CUnitScript::DropUnit(int u)
 	unit->DetachUnit(tgtUnit);
 #endif
 }
-
-
-//Returns true if there was an animation to listen to
-bool CUnitScript::NeedsWait(AnimType type, int piece, int axis)
-{
-	RECOIL_DETAILED_TRACY_ZONE;
-	auto animInfoIt = FindAnim(type, piece, axis);
-
-	if (animInfoIt == anims[type].end())
-		return false;
-
-	AnimInfo& ai = *animInfoIt;
-
-	// if the animation is already finished, listening for
-	// it just adds some overhead since either the current
-	// or the next Tick will remove it and call UnblockAll
-	// (which calls AnimFinished for each listener)
-	//
-	// we could notify the listener here, but a cleaner way
-	// is to treat the animation as if it did not exist and
-	// simply disregard the WaitFor* (no side-effects)
-	//
-	// if (ai.hasWaiting)
-	// 		AnimFinished(ai.type, ai.piece, ai.axis);
-	if (ai.done)
-		return false;
-
-	return (ai.hasWaiting = true);
-}
-
 
 //Flags as defined by the cob standard
 void CUnitScript::Explode(int piece, int flags)
@@ -1750,7 +1583,7 @@ int CUnitScript::ModelToScript(int lmodelPieceNum) const {
 	return (lmp->GetScriptPieceIndex());
 }
 
-void CUnitScript::ShowUnitScriptError(const std::string& error)
+void CUnitScript::ShowUnitScriptError(const std::string& error) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (unit == nullptr) {

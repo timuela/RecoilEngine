@@ -386,7 +386,7 @@ void CLuaUnitScript::RemoveCallIn(const std::string& fname)
 }
 
 
-void CLuaUnitScript::ShowScriptError(const std::string& msg)
+void CLuaUnitScript::ShowScriptError(const std::string& msg) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	// if we are in the same handle, we can truly raise an error

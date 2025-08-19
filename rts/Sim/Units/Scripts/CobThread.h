@@ -7,6 +7,7 @@
 #include <array>
 
 #include "CobInstance.h"
+#include "AnimTypes.hpp"
 #include "Lua/LuaRules.h"
 
 class CCobFile;
@@ -96,7 +97,7 @@ public:
 	 * interpreter.
 	 */
 	void ShowError(const char* msg);
-	void AnimFinished(CUnitScript::AnimType type, int piece, int axis);
+	void AnimFinished(AnimType type, int piece, int axis);
 
 	const std::string& GetName();
 
@@ -107,8 +108,8 @@ public:
 	int GetSignalMask() const { return signalMask; }
 	State GetState() const { return state; }
 
-	bool Reschedule(CUnitScript::AnimType type) const {
-		return ((state == WaitMove && type == CCobInstance::AMove) || (state == WaitTurn && type == CCobInstance::ATurn));
+	bool Reschedule(AnimType type) const {
+		return ((state == WaitMove && type == AMove) || (state == WaitTurn && type == ATurn));
 	}
 
 	bool IsDead() const { return (state == Dead); }
