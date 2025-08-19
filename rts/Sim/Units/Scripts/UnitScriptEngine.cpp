@@ -276,7 +276,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto entity, auto& rot, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& rot, auto& noInterpolate, auto& ai) {
 					using namespace LMP;
 
 					auto cur = ClampRad(rot.value[animAxis]);
@@ -287,7 +287,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				});
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto entity, auto& rot, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& rot, auto& noInterpolate, auto& ai) {
 					using namespace LMP;
 
 					auto cur = ClampRad(rot.value[animAxis]);
@@ -298,7 +298,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				});
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachView<Position, RotationNoInterpolation, AnimInfoType>([tickRate](auto entity, auto& pos, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Position, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& pos, auto& noInterpolate, auto& ai) {
 					using namespace LMP;
 
 					auto cur = pos.value[animAxis];
@@ -317,18 +317,16 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			((ExecuteAnimation(args)), ...);
 		}, animTuple);
 	}
-	/*
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST)");
 
-		static const auto FinalizeAnimation = [tickRate](auto&& t) {
+		static const auto FinalizeAnimation = [](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
-			using EntityType = LocalModelPieceEntity::EntityType;
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
-			LocalModelPieceEntity::ForEachView<const AnimInfoType>(auto entity, const auto& ai) {
+			LocalModelPieceEntity::ForEachView<const AnimInfoType>([](auto&& entityRef, const auto& ai) {
 				if (!ai.done)
 					return;
 
@@ -336,15 +334,14 @@ void CUnitScriptEngine::Tick(int deltaTime)
 					//AnimFinished(static_cast<AnimType>(animType), ai.piece, ai.axis);
 				}
 
-
-			}
+				entityRef.Remove<AnimInfoType>();
+			});
 		};
 
 		std::apply([&](auto&&... args) {
-			((ExecuteAnimation(args)), ...);
+			((FinalizeAnimation(args)), ...);
 		}, animTuple);
 	}
-	*/
 
 	/*
 	// tick all (COB or LUS) script instances that have registered themselves as animating
