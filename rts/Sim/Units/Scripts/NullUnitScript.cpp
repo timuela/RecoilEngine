@@ -32,7 +32,7 @@ void CNullUnitScript::PostLoad()
 	}
 }
 
-void CNullUnitScript::ShowScriptError(const std::string& msg)
+void CNullUnitScript::ShowScriptError(const std::string& msg) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 	LOG_L(L_ERROR, "%s", msg.c_str());

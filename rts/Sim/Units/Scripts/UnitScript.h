@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "AnimTypes.hpp"
 #include "Rendering/Models/LocalModelPiece.hpp"
 #include "System/creg/creg_cond.h"
 
@@ -18,15 +19,6 @@ class CUnitScript
 {
 	CR_DECLARE(CUnitScript)
 	CR_DECLARE_SUB(AnimInfo)
-public:
-	enum AnimType {
-		ANone = -1,
-		ATurn = 0,
-		ASpin = 1,
-		AMove = 2,
-		ACount = 3
-	};
-
 protected:
 	CUnit* unit;
 	bool busy;
@@ -54,18 +46,12 @@ protected:
 	bool hasRockUnit;
 	bool hasStartBuilding;
 
-	static bool MoveToward(float& cur, float dest, float speed);
-	static bool TurnToward(float& cur, float dest, float speed);
-	static bool DoSpin(float& cur, float dest, float& speed, float accel, int divisor);
-
-	AnimContainerTypeIt FindAnim(AnimType type, int piece, int axis);
-	void RemoveAnim(AnimType type, const AnimContainerTypeIt& animInfoIt);
+	void RemoveAnim(AnimType type, int piece, int axis);
 	void AddAnim(AnimType type, int piece, int axis, float speed, float dest, float accel);
 
-	virtual void ShowScriptError(const std::string& msg) = 0;
-
-	void ShowUnitScriptError(const std::string& msg);
-
+	virtual void ShowScriptError(const std::string& msg) const = 0;
+public:
+	void ShowUnitScriptError(const std::string& msg) const;
 public:
 	// subclass is responsible for populating this with script pieces
 	std::vector<LocalModelPiece*> pieces;
@@ -113,19 +99,12 @@ public:
 
 public:
 	CUnitScript(CUnit* unit);
-	virtual ~CUnitScript();
+	virtual ~CUnitScript() {}
 
 	bool IsBusy() const { return busy; }
 
 	      CUnit* GetUnit()       { return unit; }
 	const CUnit* GetUnit() const { return unit; }
-
-	void TickAllAnims(int tickRate);
-	bool TickAnimFinished(int tickRate);
-	// note: must copy-and-set here (LMP dirty flag, etc)
-	bool TickMoveAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai);
-	bool TickTurnAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai);
-	bool TickSpinAnim(int tickRate, LocalModelPiece& lmp, AnimInfo& ai);
 
 	// animation, used by CCobThread
 	void Spin(int piece, int axis, float speed, float accel);
@@ -135,7 +114,7 @@ public:
 	void MoveNow(int piece, int axis, float destination);
 	void TurnNow(int piece, int axis, float destination);
 
-	bool NeedsWait(AnimType type, int piece, int axis);
+	bool NeedsWait(AnimType type, int piece, int axis) const;
 
 	// misc, used by CCobThread and callouts for Lua unitscripts
 	void SetVisibility(int piece, bool visible);
@@ -152,12 +131,7 @@ public:
 	int GetUnitVal(int val, int p1, int p2, int p3, int p4);
 	void SetUnitVal(int val, int param);
 
-	bool IsInAnimation(AnimType type, int piece, int axis) {
-		return (FindAnim(type, piece, axis) != anims[type].end());
-	}
-	bool HaveAnimations() const {
-		return (!anims[ATurn].empty() || !anims[ASpin].empty() || !anims[AMove].empty());
-	}
+	bool IsInAnimation(AnimType type, int piece, int axis) const;
 
 	// checks for callin existence
 	bool HasSetSFXOccupy () const { return hasSetSFXOccupy; }

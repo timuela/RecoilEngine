@@ -11,7 +11,7 @@ class CNullUnitScript : public CUnitScript
 protected:
 	CNullUnitScript(CUnit* u);
 
-	void ShowScriptError(const std::string& msg) override;
+	void ShowScriptError(const std::string& msg) const override;
 	void PostLoad();
 
 public:

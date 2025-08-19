@@ -3,8 +3,8 @@
 #include "3DModelPiece.hpp"
 #include "LocalModel.hpp"
 #include "Rendering/GL/myGL.h"
-#include "System/Ecs/Components/BaseComponents.h"
 #include "System/Misc/TracyDefs.h"
+#include "Rendering/Models/LocalModelPieceComponents.hpp"
 
 CR_BIND(LocalModelPiece, )
 CR_REG_METADATA(LocalModelPiece, (
@@ -26,18 +26,12 @@ CR_REG_METADATA(LocalModelPiece, (
 
 	CR_MEMBER(dirty),
 	CR_MEMBER(wasUpdated),
-	CR_MEMBER(noInterpolation),
 	CR_MEMBER(modelSpaceTra),
 	CR_MEMBER(pieceSpaceTra),
 	CR_MEMBER(modelSpaceMat),
 
 	CR_IGNORED(lodDispLists) //FIXME GL idx!
 ))
-
-// Components
-
-ALIAS_COMPONENT(Position, float3);
-ALIAS_COMPONENT(Rotation, float3);
 
 /** ****************************************************************************************************
  * LocalModelPiece
@@ -47,7 +41,6 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	: colvol(piece->GetCollisionVolume())
 	, dirty(true)
 	, wasUpdated{ true }
-	, noInterpolation{ false }
 
 	, scriptSetVisible(true)
 	, blockScriptAnims(false)
@@ -60,9 +53,11 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 {
 	assert(piece != nullptr);
 
-	//auto [aim, air, ais] = lmpe.Add<AnimInfoMove, AnimInfoRotate, AnimInfoSpin>();
+	using namespace LMP;
 	auto [pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
+
+	lmpe.Add<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
 
 	dir = piece->GetEmitDir();
 
@@ -83,14 +78,22 @@ void LocalModelPiece::SetDirty() {
 	}
 }
 
-const float3& LocalModelPiece::GetPosition() const { return lmpe.Get<Position>(); }
-const float3& LocalModelPiece::GetRotation() const { return lmpe.Get<Rotation>(); }
+const float3& LocalModelPiece::GetPosition() const {
+	using namespace LMP;
+	return lmpe.Get<Position>();
+}
+
+const float3& LocalModelPiece::GetRotation() const {
+	using namespace LMP;
+	return lmpe.Get<Rotation>();
+}
 
 void LocalModelPiece::SetPosition(const float3& p) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (blockScriptAnims)
 		return;
 
+	using namespace LMP;
 	auto& pos = lmpe.Get<Position>();
 	if (!dirty && !p.same(pos)) {
 		SetDirty();
@@ -106,6 +109,7 @@ void LocalModelPiece::SetRotation(const float3& r) {
 	if (blockScriptAnims)
 		return;
 
+	using namespace LMP;
 	auto& rot = lmpe.Get<Rotation>();
 	if (!dirty && !r.same(rot)) {
 		SetDirty();
@@ -114,6 +118,24 @@ void LocalModelPiece::SetRotation(const float3& r) {
 	}
 
 	rot = r;
+}
+
+void LocalModelPiece::SetRotationNoInterpolation(bool noInterpolate)
+{
+	using namespace LMP;
+	lmpe.Set<RotationNoInterpolation>(noInterpolate);
+}
+
+void LocalModelPiece::SetPositionNoInterpolation(bool noInterpolate)
+{
+	using namespace LMP;
+	lmpe.Set<PositionNoInterpolation>(noInterpolate);
+}
+
+void LocalModelPiece::SetScalingNoInterpolation(bool noInterpolate)
+{
+	using namespace LMP;
+	lmpe.Set<ScalingNoInterpolation>(noInterpolate);
 }
 
 void LocalModelPiece::ResetWasUpdated() const
@@ -129,7 +151,11 @@ void LocalModelPiece::ResetWasUpdated() const
 	wasUpdated[1] = std::exchange(wasUpdated[0], false);
 
 	// use this call to also reset noInterpolation
-	noInterpolation = { false };
+	using namespace LMP;
+	auto [pni, rni, sni] = lmpe.Get<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
+	pni = false;
+	rni = false;
+	sni = false;
 }
 
 const Transform& LocalModelPiece::GetModelSpaceTransform() const
@@ -161,14 +187,18 @@ void LocalModelPiece::SavePrevModelSpaceTransform()
 
 Transform LocalModelPiece::GetEffectivePrevModelSpaceTransform() const
 {
-	if (!noInterpolation[0] && !noInterpolation[1] && !noInterpolation[2])
+	using namespace LMP;
+
+	const auto [pni, rni, sni] = lmpe.Get<const PositionNoInterpolation, const RotationNoInterpolation, const ScalingNoInterpolation>();
+
+	if (!pni && !rni && !sni)
 		return prevModelSpaceTra;
 
 	const auto& lmpTransform = GetModelSpaceTransform();
 	return Transform {
-		noInterpolation[0] ? lmpTransform.r : prevModelSpaceTra.r,
-		noInterpolation[1] ? lmpTransform.t : prevModelSpaceTra.t,
-		noInterpolation[2] ? lmpTransform.s : prevModelSpaceTra.s
+		rni ? lmpTransform.r : prevModelSpaceTra.r,
+		pni ? lmpTransform.t : prevModelSpaceTra.t,
+		sni ? lmpTransform.s : prevModelSpaceTra.s
 	};
 }
 
@@ -181,6 +211,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 		wasUpdated[0] = true;  //update for current frame
 		updateChildTransform = true;
 
+		using namespace LMP;
 		auto [pos, rot] = lmpe.Get<Position, Rotation>();
 		pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 	}
@@ -208,6 +239,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	dirty = false;
 	wasUpdated[0] = true;  //update for current frame
 
+	using namespace LMP;
 	auto [pos, rot] = lmpe.Get<Position, Rotation>();
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 

@@ -7,6 +7,8 @@
 #include "System/TemplateUtils.hpp"
 
 namespace ECS {
+    using EntityType = entt::entity;
+
     template <typename TypeTag>
     class EntityOwner {
     public:
@@ -55,12 +57,12 @@ namespace ECS {
 
         template<typename T, typename... Args>
         decltype(auto) GetOrAdd(Args&&... args) {
-            return registry.get_or_emplace<T...>(entity, std::forward<Args>(args)...);
+            return registry.get_or_emplace<T>(entity, std::forward<Args>(args)...);
         }
 
         template<typename T, typename... Args>
         decltype(auto) GetOrAdd(Args&&... args) const {
-            return registry.get_or_emplace<T...>(entity, std::forward<Args>(args)...);
+            return registry.get_or_emplace<T>(entity, std::forward<Args>(args)...);
         }
 
         template<typename... T>
@@ -73,14 +75,24 @@ namespace ECS {
             return registry.try_get<T...>(entity);
         }
 
-        template<typename... T>
+        template<typename T>
         bool Has() const {
+            return registry.any_of<T>(entity);
+        }
+
+        template<typename... T>
+        bool HasAll() const {
             return registry.all_of<T...>(entity);
+        }
+
+        template<typename... T>
+        bool HasAny() const {
+            return registry.any_of<T...>(entity);
         }
 
         template<typename T>
         decltype(auto) Set(T&& val) {
-            assert(registry.all_of<T...>(entity));
+            assert(registry.all_of<T>(entity));
             return registry.replace<T>(entity, std::forward<T>(val));
         }
 
@@ -143,7 +155,7 @@ namespace ECS {
         template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
         static auto ForEachGroupAsync(Func&& func, entt::get_t<ObservedComponents...> obsv = {}, entt::exclude_t<ExcludedComponents...> excl = {}) {
             // copy excl and func on purpose
-            return ThreadPool::Enqueue([excl, func]() {
+            return ThreadPool::Enqueue([obsv, excl, func]() {
                 auto entities = registry.group<OwnedComponents...>(obsv, excl);
                 for (auto entity : entities) {
                     func(entity, entities.template get<OwnedComponents>(entity)...);
@@ -182,7 +194,7 @@ namespace ECS {
             registry = {};
         }
     private:
-        entt::entity entity{ entt::null };
+        EntityType entity{ entt::null };
         static inline entt::registry registry{};
     };
 }
