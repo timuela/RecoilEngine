@@ -9,8 +9,8 @@ using AnimTypeInt = std::underlying_type_t<AnimType>;
 
 template<AnimTypeInt AT, size_t AA>
 struct AnimInfoBase {
-	static constexpr AnimTypeInt animType = AT;
-	static constexpr size_t animAxis = AA;
+	static constexpr auto animType = AT;
+	static constexpr auto animAxis = AA;
 
 	float speed{};
 	float dest{};     // means final position when turning or moving, final speed when spinning
