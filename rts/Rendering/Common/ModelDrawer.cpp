@@ -7,12 +7,9 @@
 #include "Rendering/LuaObjectDrawer.h"
 
 #include "System/Misc/TracyDefs.h"
-#include "System/Ecs/EntityOwner.hpp"
 
 void CModelDrawerConcept::InitStatic()
 {
-	ECS::EntityOwner<struct Bla> bla;
-
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (initialized)
 		return;

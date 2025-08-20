@@ -334,7 +334,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 					//AnimFinished(static_cast<AnimType>(animType), ai.piece, ai.axis);
 				}
 
-				entityRef.Remove<AnimInfoType>();
+				entityRef.template Remove<AnimInfoType>();
 			});
 		};
 
