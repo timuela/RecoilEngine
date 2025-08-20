@@ -1562,16 +1562,18 @@ int LuaSyncedRead::GetAllyTeamStartBox(lua_State* L)
 }
 
 
-/***
+/*** Get the team start position
+ * 
+ *  Returns nil if the team is invalid or the caller is not allied to the team (in LuaUI environment)
  *
  * @function Spring.GetTeamStartPosition
  *
  * @param teamID integer
  *
- * @return number? x
- * @return number? y
- * @return number? z
- * @return boolean hasValidStartPos
+ * @return number? x in elmos
+ * @return number? y in elmos
+ * @return number? z in elmos
+ * @return boolean? hasValidStartPos
  */
 int LuaSyncedRead::GetTeamStartPosition(lua_State* L)
 {
