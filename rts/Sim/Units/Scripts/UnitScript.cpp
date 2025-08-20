@@ -62,26 +62,12 @@ CR_REG_METADATA(CUnitScript, (
 	CR_MEMBER(myId),
 	CR_MEMBER(unit),
 	CR_MEMBER(busy),
-	CR_MEMBER(anims),
-	CR_MEMBER(doneAnims),
 
 	//Populated by children
 	CR_IGNORED(pieces),
 	CR_IGNORED(hasSetSFXOccupy),
 	CR_IGNORED(hasRockUnit),
 	CR_IGNORED(hasStartBuilding)
-))
-
-CR_BIND(CUnitScript::AnimInfo,)
-
-CR_REG_METADATA_SUB(CUnitScript, AnimInfo,(
-	CR_MEMBER(axis),
-	CR_MEMBER(piece),
-	CR_MEMBER(speed),
-	CR_MEMBER(dest),
-	CR_MEMBER(accel),
-	CR_MEMBER(done),
-	CR_MEMBER(hasWaiting)
 ))
 
 /******************************************************************************/

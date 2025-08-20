@@ -18,30 +18,10 @@ class CPlasmaRepulser;
 class CUnitScript
 {
 	CR_DECLARE(CUnitScript)
-	CR_DECLARE_SUB(AnimInfo)
 protected:
 	size_t myId; // position in the unitscript vector
 	CUnit* unit;
 	bool busy;
-
-	struct AnimInfo {
-		CR_DECLARE_STRUCT(AnimInfo)
-		int axis;
-		int piece;
-		float speed;
-		float dest;     // means final position when turning or moving, final speed when spinning
-		float accel;    // used for spinning, can be negative
-		bool done;
-		bool hasWaiting;
-	};
-
-	typedef std::vector<AnimInfo> AnimContainerType;
-	typedef AnimContainerType::iterator AnimContainerTypeIt;
-
-	typedef bool(CUnitScript::*TickAnimFunc)(int, LocalModelPiece&, AnimInfo&);
-
-	std::array<AnimContainerType, ACount> anims;
-	std::array<AnimContainerType, ACount> doneAnims;
 
 	bool hasSetSFXOccupy;
 	bool hasRockUnit;
