@@ -191,13 +191,8 @@ void CModInfo::Init(const std::string& modFileName)
 
 		allowTake = system.GetBool("allowTake", allowTake);
 		allowEnginePlayerlist = system.GetBool("allowEnginePlayerlist", allowEnginePlayerlist);
-	}
 
-	{
-		// game start
-		const LuaTable& gameStart = root.SubTable("gameStart");
-
-		useStartPositionSelecter = gameStart.GetBool("useStartPositionSelecter", useStartPositionSelecter);
+		useStartPositionSelecter = system.GetBool("useStartPositionSelecter", useStartPositionSelecter);
 	}
 
 	{
