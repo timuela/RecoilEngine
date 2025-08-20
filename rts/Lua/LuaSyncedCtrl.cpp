@@ -920,6 +920,7 @@ int LuaSyncedCtrl::SetAllyTeamStartBox(lua_State* L)
 
 /*** Set the starting position of a team.
  * 
+ * If the position argument is outside the teams startbox, the position is clamped.
  * @function Spring.SetTeamStartPosition
  * @param playerID integer
  * @param teamID integer
@@ -931,11 +932,6 @@ int LuaSyncedCtrl::SetAllyTeamStartBox(lua_State* L)
  */
 int LuaSyncedCtrl::SetTeamStartPosition(lua_State* L)
 {
-	if (modInfo.useStartPositionSelecter == true) {
-		lua_pushboolean(L, false);
-		return 1;
-	}
-
 	const unsigned int playerID = luaL_checkint(L, 1);
 	const unsigned int teamID = luaL_checkint(L, 2);
 	const unsigned int readyState = luaL_checkint(L, 3);
