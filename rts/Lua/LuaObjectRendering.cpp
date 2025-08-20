@@ -9,7 +9,6 @@
 #include "LuaUtils.h"
 
 #include "Rendering/LuaObjectDrawer.h"
-//#include "Rendering/Models/3DModel.h"
 // see ParseUnitTexture
 // #include "Rendering/Textures/3DOTextureHandler.h"
 // #include "Rendering/Textures/S3OTextureHandler.h"
