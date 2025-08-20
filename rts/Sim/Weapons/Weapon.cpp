@@ -20,7 +20,7 @@
 #include "Sim/Projectiles/ProjectileHandler.h"
 #include "Sim/Projectiles/WeaponProjectiles/WeaponProjectile.h"
 #include "Sim/Units/Scripts/CobInstance.h"
-#include "Sim/Units/Scripts/NullUnitScript.h"
+#include "Sim/Units/Scripts/UnitScriptEngine.h"
 #include "Sim/Units/CommandAI/CommandAI.h"
 #include "Sim/Units/Unit.h"
 #include "Sim/Units/UnitDef.h"
@@ -259,7 +259,7 @@ void CWeapon::UpdateWeaponPieces(const bool updateAimFrom)
 		return;
 	}
 
-	if (!alreadyWarnedAboutMissingPieces && (owner->script != &CNullUnitScript::value) && !weaponDef->isShield && (dynamic_cast<CNoWeapon*>(this) == nullptr)) {
+	if (!alreadyWarnedAboutMissingPieces && (owner->script != unitScriptEngine->GetNullUnitScript()) && !weaponDef->isShield && (dynamic_cast<CNoWeapon*>(this) == nullptr)) {
 		LOG_L(L_WARNING, "%s: weapon%i: Neither AimFromWeapon nor QueryWeapon defined or returned invalid pieceids", owner->unitDef->name.c_str(), weaponNum + LUA_WEAPON_BASE_INDEX);
 		alreadyWarnedAboutMissingPieces = true;
 	}

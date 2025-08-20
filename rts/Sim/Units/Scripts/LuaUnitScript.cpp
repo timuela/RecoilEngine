@@ -8,7 +8,7 @@
 #include "CobDefines.h"
 #include "CobInstance.h"
 #include "LuaInclude.h"
-#include "NullUnitScript.h"
+#include "UnitScriptEngine.h"
 #include "UnitScriptFactory.h"
 #include "LuaScriptNames.h"
 #include "Lua/LuaConfig.h"
@@ -296,7 +296,7 @@ void CLuaUnitScript::HandleFreed(CLuaHandle* handle)
 			continue;
 
 		// we don't have anything better ...
-		u->script = &CNullUnitScript::value;
+		u->script = unitScriptEngine->GetNullUnitScript();
 
 		// signal the destructor it shouldn't unref refs
 		luaScript->L = nullptr;
@@ -1136,7 +1136,7 @@ int CLuaUnitScript::CreateScript(lua_State* L)
 		}
 	}
 
-	if (unit->script != &CNullUnitScript::value)
+	if (unit->script != unitScriptEngine->GetNullUnitScript())
 		spring::SafeDestruct(unit->script);
 
 	// replace the unit's script (ctor parses callIn table)

@@ -59,6 +59,7 @@
 CR_BIND_INTERFACE(CUnitScript)
 
 CR_REG_METADATA(CUnitScript, (
+	CR_MEMBER(myId),
 	CR_MEMBER(unit),
 	CR_MEMBER(busy),
 	CR_MEMBER(anims),
@@ -167,6 +168,8 @@ namespace Impl {
 
 		// search or emplace the requested animation type
 		auto& ai = lmpe.GetOrAdd<AnimInfoType>();
+		ai.scriptId = self.GetId();
+		ai.piece = piece;
 		ai.dest = destf;
 		ai.speed = speed;
 		ai.accel = accel;
@@ -195,7 +198,14 @@ CUnitScript::CUnitScript(CUnit* unit)
 	, hasSetSFXOccupy(false)
 	, hasRockUnit(false)
 	, hasStartBuilding(false)
-{}
+{
+	myId = unitScriptEngine->AddInstance(this);
+}
+
+CUnitScript::~CUnitScript()
+{
+	unitScriptEngine->RemoveInstance(myId);
+}
 
 void CUnitScript::RemoveAnim(AnimType type, int piece, int axis)
 {

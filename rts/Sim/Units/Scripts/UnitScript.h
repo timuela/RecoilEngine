@@ -20,6 +20,7 @@ class CUnitScript
 	CR_DECLARE(CUnitScript)
 	CR_DECLARE_SUB(AnimInfo)
 protected:
+	size_t myId; // position in the unitscript vector
 	CUnit* unit;
 	bool busy;
 
@@ -99,14 +100,14 @@ public:
 
 public:
 	CUnitScript(CUnit* unit);
-	virtual ~CUnitScript() {}
+	virtual ~CUnitScript();
 
+	auto GetId() const { return myId; }
 	bool IsBusy() const { return busy; }
 
 	      CUnit* GetUnit()       { return unit; }
 	const CUnit* GetUnit() const { return unit; }
 
-	// animation, used by CCobThread
 	void Spin(int piece, int axis, float speed, float accel);
 	void StopSpin(int piece, int axis, float decel);
 	void Turn(int piece, int axis, float speed, float destination);

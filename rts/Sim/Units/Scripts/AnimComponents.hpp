@@ -3,6 +3,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include "System/Ecs/Components/BaseComponents.h"
+
 #include "AnimTypes.hpp"
 
 using AnimTypeInt = std::underlying_type_t<AnimType>;
@@ -12,9 +14,11 @@ struct AnimInfoBase {
 	static constexpr auto animType = AT;
 	static constexpr auto animAxis = AA;
 
+	size_t scriptId{size_t(-1)}; // script id, used to identify the script instance
+	int piece{-1}; // script piece index
 	float speed{};
-	float dest{};     // means final position when turning or moving, final speed when spinning
-	float accel{};    // used for spinning, can be negative
+	float dest{};  // means final position when turning or moving, final speed when spinning
+	float accel{}; // used for spinning, can be negative
 	bool done = false;
 	bool hasWaiting = false;
 };

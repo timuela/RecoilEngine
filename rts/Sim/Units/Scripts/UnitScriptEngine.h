@@ -8,32 +8,34 @@
 #include <vector>
 
 #include "System/creg/creg_cond.h"
+#include "System/FreeListMap.h"
 
 struct UnitDef;
 class CUnit;
 class CUnitScript;
-
+class CNullUnitScript;
 
 class CUnitScriptEngine
 {
 	CR_DECLARE_STRUCT(CUnitScriptEngine)
 
 public:
-	void AddInstance(CUnitScript* instance);
-	void RemoveInstance(CUnitScript* instance);
+	size_t AddInstance(CUnitScript* instance);
+	void RemoveInstance(size_t id);
 	void ReloadScripts(const UnitDef* udef);
 
 	void Tick(int deltaTime);
 
-	void Init() { animating.reserve(256); }
-	void Kill() { animating.clear(); }
+	void Init();
+	void Kill();
+
+	CUnitScript* GetNullUnitScript();
 
 	static void InitStatic();
 	static void KillStatic();
 private:
-	CUnitScript* currentScript = nullptr;
-
-	std::vector<CUnitScript*> animating;
+	CNullUnitScript* nullUnitScriptPtr = nullptr;
+	spring::FreeListMap<CUnitScript*> allUnitScripts;
 };
 
 extern CUnitScriptEngine* unitScriptEngine;
