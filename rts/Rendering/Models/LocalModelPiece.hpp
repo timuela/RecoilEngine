@@ -15,6 +15,7 @@ struct LocalModel;
 struct LocalModelPiece;
 
 using LocalModelPieceEntity = ECS::EntityOwner<LocalModelPiece>;
+using LocalModelPieceEntityRef = ECS::EntityReference<LocalModelPiece>;
 
 /**
  * LocalModel
@@ -26,14 +27,12 @@ struct LocalModelPiece
 	CR_DECLARE_STRUCT(LocalModelPiece)
 
 	LocalModelPiece()
-		: dirty(true)
-		, wasUpdated{ true }
+		: wasUpdated{ true }
 	{}
 	LocalModelPiece(const S3DModelPiece* piece);
 
-	void AddChild(LocalModelPiece* c) { children.push_back(c); }
-	void RemoveChild(LocalModelPiece* c) { children.erase(std::find(children.begin(), children.end(), c)); }
-	void SetParent(LocalModelPiece* p) { parent = p; }
+	void AddChild(LocalModelPiece* c);
+	void RemoveChild(LocalModelPiece* c);
 	void SetLocalModel(LocalModel* lm) { localModel = lm; }
 
 	void SetLModelPieceIndex(uint32_t idx) { lmodelPieceIndex = idx; }
@@ -58,7 +57,8 @@ struct LocalModelPiece
 
 	bool GetEmitDirPos(float3& emitPos, float3& emitDir) const;
 
-	void SetDirty();
+	void SetDirty(bool state) const; //needs fake constness;
+	bool GetDirty() const;
 	void SetPosition(const float3& p); // anim-script only
 	void SetRotation(const float3& r); // anim-script only
 
@@ -66,23 +66,13 @@ struct LocalModelPiece
 	void SetPositionNoInterpolation(bool noInterpolate);
 	void SetScalingNoInterpolation (bool noInterpolate);
 
+	void SetBlockScriptAnims(bool b);
+	bool GetBlockScriptAnims() const;
+
 	auto GetWasUpdated() const { return wasUpdated[0] || wasUpdated[1]; }
 	void ResetWasUpdated() const; /*fake*/
 
-	bool SetPieceSpaceMatrix(const CMatrix44f& mat) {
-		if ((blockScriptAnims = (mat.GetX() != ZeroVector))) {
-			pieceSpaceTra = Transform::FromMatrix(mat);
-
-			// neither of these are used outside of animation scripts, and
-			// GetEulerAngles wants a matrix created by PYR rotation while
-			// <rot> is YPR
-			// pos = mat.GetPos();
-			// rot = mat.GetEulerAnglesLftHand();
-			return true;
-		}
-
-		return false;
-	}
+	bool SetPieceSpaceMatrix(const CMatrix44f& mat);
 
 	const float3& GetPosition() const;
 	const float3& GetRotation() const;
@@ -120,11 +110,8 @@ private:
 	CollisionVolume colvol;
 
 	mutable std::array<bool, 2> wasUpdated; // currFrame, prevFrame
-	mutable bool dirty;
 	bool scriptSetVisible; // TODO: add (visibility) maxradius!
 public:
-	bool blockScriptAnims; // if true, Set{Position,Rotation} are ignored for this piece
-
 	uint32_t lmodelPieceIndex; // index of this piece into LocalModel::pieces
 	uint32_t scriptPieceIndex; // index of this piece into UnitScript::pieces
 

@@ -62,6 +62,11 @@ namespace spring {
 			nextId = 0;
 		}
 
+		void shrink_to_fit() {
+			values.shrink_to_fit();
+			freeIDs.shrink_to_fit();
+		}
+
 		template<typename ShuffleFunc>
 		void ShuffleFreeIDs(ShuffleFunc&& shuffleFunc) {
 			spring::random_shuffle(freeIDs.begin(), freeIDs.end(), shuffleFunc);
@@ -202,6 +207,11 @@ namespace spring {
 			kpMap.clear();
 			pkMap.clear();
 			freeKeys.clear();
+		}
+
+		void shrink_to_fit() {
+			vault.shrink_to_fit();
+			freeKeys.shrink_to_fit();
 		}
 
 		constexpr auto begin()        { return vault.begin(); }

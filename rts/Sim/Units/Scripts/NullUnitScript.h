@@ -8,15 +8,13 @@
 class CNullUnitScript : public CUnitScript
 {
 	CR_DECLARE_DERIVED(CNullUnitScript)
-protected:
+public:
 	CNullUnitScript(CUnit* u);
-
+protected:
 	void ShowScriptError(const std::string& msg) const override;
 	void PostLoad();
 
 public:
-	static CNullUnitScript value;
-
 	// callins
 	void RawCall(int functionId) override {}
 	void Create() override {}

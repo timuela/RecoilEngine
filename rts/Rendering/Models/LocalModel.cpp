@@ -109,7 +109,6 @@ LocalModelPiece* LocalModel::CreateLocalModelPieces(const S3DModelPiece* mpParen
 
 	for (const S3DModelPiece* mpChild: mpParent->children) {
 		lmpChild = CreateLocalModelPieces(mpChild);
-		lmpChild->SetParent(lmpParent);
 		lmpParent->AddChild(lmpChild);
 	}
 

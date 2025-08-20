@@ -10,6 +10,7 @@
 #include "CobEngine.h"
 #include "CobFileHandler.h"
 #include "UnitScript.h"
+#include "NullUnitScript.h"
 #include "UnitScriptFactory.h"
 #include "Sim/Units/Unit.h"
 #include "Sim/Units/UnitDef.h"
@@ -35,10 +36,8 @@ CUnitScriptEngine* unitScriptEngine = nullptr;
 CR_BIND(CUnitScriptEngine, )
 
 CR_REG_METADATA(CUnitScriptEngine, (
-	CR_MEMBER(animating),
-
-	// always null when saving
-	CR_IGNORED(currentScript)
+	CR_MEMBER(allUnitScripts),
+	CR_IGNORED(nullUnitScriptPtr)
 ))
 
 
@@ -64,7 +63,24 @@ void CUnitScriptEngine::KillStatic() {
 	unitScriptEngine = nullptr;
 }
 
+void CUnitScriptEngine::Init()
+{
+	RECOIL_DETAILED_TRACY_ZONE;
+	nullUnitScriptPtr = new CNullUnitScript(nullptr);
+	allUnitScripts.reserve(1024); // reserve some space for the initial scripts
+}
 
+void CUnitScriptEngine::Kill()
+{
+	spring::SafeDelete(nullUnitScriptPtr);
+	allUnitScripts.clear();
+}
+
+CUnitScript* CUnitScriptEngine::GetNullUnitScript()
+{
+	assert(nullUnitScriptPtr);
+	return nullUnitScriptPtr;
+}
 
 void CUnitScriptEngine::ReloadScripts(const UnitDef* udef)
 {
@@ -109,22 +125,18 @@ void CUnitScriptEngine::ReloadScripts(const UnitDef* udef)
 }
 
 
-void CUnitScriptEngine::AddInstance(CUnitScript* instance)
+size_t CUnitScriptEngine::AddInstance(CUnitScript* instance)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (instance == currentScript)
-		return;
 
-	spring::VectorInsertUnique(animating, instance/*, true*/);
+	return allUnitScripts.Add(instance);
 }
 
-void CUnitScriptEngine::RemoveInstance(CUnitScript* instance)
+void CUnitScriptEngine::RemoveInstance(size_t id)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (instance == currentScript)
-		return;
 
-	spring::VectorErase(animating, instance);
+	allUnitScripts.Del(id);
 }
 
 namespace Impl{
@@ -199,59 +211,6 @@ namespace Impl{
 		cur = ClampRad(cur + (speed / divisor));
 		return false;
 	}
-
-	template<Concepts::AnimComponent AnimInfoType>
-	inline bool TickMoveAnim(int tickRate, LocalModelPieceEntity& lmpe, const AnimInfoType& ai)
-	{
-		static constexpr auto animAxis = AnimInfoType::animAxis;
-
-		using namespace LMP;
-
-		auto& [pos, noInterpolate] = lmpe.Get<Position, PositionNoInterpolation>();
-		auto cur = pos[animAxis];
-		const bool ret = MoveToward(cur, ai.dest, ai.speed / tickRate);
-		pos[animAxis] = cur;
-
-		noInterpolate = false;
-
-		return ret;
-	}
-
-	template<Concepts::AnimComponent AnimInfoType>
-	inline bool TickTurnAnim(int tickRate, LocalModelPieceEntity& lmpe, const AnimInfoType& ai)
-	{
-		static constexpr auto animAxis = AnimInfoType::animAxis;
-
-		using namespace LMP;
-
-		auto& [rot, noInterpolate] = lmpe.Get<Rotation, PositionNoInterpolation>();
-		auto cur = ClampRad(rot[animAxis]);
-
-		const bool ret = TurnToward(rot[ai.axis], ai.dest, ai.speed / tickRate);
-		rot[animAxis] = cur;
-
-		noInterpolate = false;
-
-		return ret;
-	}
-
-	template<Concepts::AnimComponent AnimInfoType>
-	inline bool TickSpinAnim(int tickRate, LocalModelPieceEntity& lmpe, const AnimInfoType& ai)
-	{
-		static constexpr auto animAxis = AnimInfoType::animAxis;
-
-		using namespace LMP;
-
-		auto& [rot, noInterpolate] = lmpe.Get<Rotation, PositionNoInterpolation>();
-		auto cur = ClampRad(rot[animAxis]);
-
-		const bool ret = DoSpin(rot[ai.axis], ai.dest, ai.speed, ai.accel, tickRate);
-		rot[animAxis] = cur;
-
-		noInterpolate = false;
-
-		return ret;
-	}
 }
 
 void CUnitScriptEngine::Tick(int deltaTime)
@@ -272,40 +231,73 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
+			using namespace ECS;
+
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& rot, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Rotation, Dirty, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& dirty, auto&& noInterpolate, auto&& ai) {
 					using namespace LMP;
 
-					auto cur = ClampRad(rot.value[animAxis]);
-					ai.done |= Impl::TurnToward(cur, ai.dest, ai.speed / tickRate);
-					rot.value[animAxis] = cur;
-
 					noInterpolate = false;
+					if (entityRef.template Has<BlockScriptAnims>())
+						return;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::TurnToward(newValue, ai.dest, ai.speed / tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
 				});
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& rot, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Rotation, Dirty, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& dirty, auto&& noInterpolate, auto&& ai) {
 					using namespace LMP;
 
-					auto cur = ClampRad(rot.value[animAxis]);
-					ai.done |= Impl::DoSpin(cur, ai.dest, ai.speed, ai.accel, tickRate);
-					rot.value[animAxis] = cur;
-
 					noInterpolate = false;
+					if (entityRef.template Has<BlockScriptAnims>())
+						return;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::DoSpin(newValue, ai.dest, ai.speed, ai.accel, tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
 				});
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachView<Position, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto& pos, auto& noInterpolate, auto& ai) {
+				LocalModelPieceEntity::ForEachView<Position, Dirty, PositionNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& pos, auto&& dirty, auto&& noInterpolate, auto&& ai) {
 					using namespace LMP;
 
-					auto cur = pos.value[animAxis];
-					ai.done |= Impl::MoveToward(cur, ai.dest, ai.speed / tickRate);
-					pos.value[animAxis] = cur;
-
 					noInterpolate = false;
+					if (entityRef.template Has<BlockScriptAnims>())
+						return;
+
+					const auto curValue = pos.value[animAxis];
+					auto newValue = pos.value[animAxis];
+					ai.done |= Impl::MoveToward(newValue, ai.dest, ai.speed / tickRate);
+					pos.value[animAxis] = newValue;
+
+					if (curValue == newValue)
+						return;
+
+					pos.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
 				});
 			}
 			else {
@@ -318,20 +310,48 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		}, animTuple);
 	}
 	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST)");
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-1)");
 
-		static const auto FinalizeAnimation = [](auto&& t) {
+		// set dirty flag to all children and further descendants of dirty parent
+		bool newDirtyFlags = true;
+
+		while (newDirtyFlags) {
+			newDirtyFlags = false;
+			LocalModelPieceEntity::ForEachView<Dirty>([&newDirtyFlags](auto&& entityRef, auto&& dirty) {
+				if (dirty)
+					return;
+
+				using namespace LMP;
+				auto& r = entityRef.template Get<ParentRelationship>();
+				if (r.parent == ECS::NullEntity)
+					return;
+
+				const auto parLmpe = LocalModelPieceEntityRef(r.parent);
+				const auto& dirtyParent = parLmpe.Get<const Dirty>();
+				if (dirtyParent) {
+					// if the parent is dirty, this instance is dirty too
+					dirty = true;
+					newDirtyFlags = true;
+				}
+			});
+		}
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-2)");
+		// send AnimFinished calls and pop up done animations
+		const auto FinalizeAnimation = [this](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
-			LocalModelPieceEntity::ForEachView<const AnimInfoType>([](auto&& entityRef, const auto& ai) {
+			LocalModelPieceEntity::ForEachView<const AnimInfoType>([this](auto&& entityRef, const auto& ai) {
 				if (!ai.done)
 					return;
 
 				if (ai.hasWaiting) {
-					//AnimFinished(static_cast<AnimType>(animType), ai.piece, ai.axis);
+					auto* unitScript = std::as_const(allUnitScripts)[ai.scriptId];
+					unitScript->AnimFinished(static_cast<AnimType>(ai.animType), ai.piece, animAxis);
 				}
 
 				entityRef.template Remove<AnimInfoType>();
@@ -368,6 +388,5 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	}
 	*/
 
-	currentScript = nullptr;
 	cobEngine->RunDeferredCallins();
 }

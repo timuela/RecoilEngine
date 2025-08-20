@@ -3591,7 +3591,6 @@ int LuaSyncedCtrl::SetUnitPieceParent(lua_State* L)
 	}
 
 	childPiece->parent->RemoveChild(childPiece);
-	childPiece->SetParent(parentPiece);
 	parentPiece->AddChild(childPiece);
 	return 0;
 }
@@ -3626,9 +3625,9 @@ int LuaSyncedCtrl::SetUnitPieceMatrix(lua_State* L)
 		return 0;
 
 	if (lmp->SetPieceSpaceMatrix(mat))
-		lmp->SetDirty();
+		lmp->SetDirty(true);
 
-	lua_pushboolean(L, lmp->blockScriptAnims);
+	lua_pushboolean(L, lmp->GetBlockScriptAnims());
 	return 1;
 }
 

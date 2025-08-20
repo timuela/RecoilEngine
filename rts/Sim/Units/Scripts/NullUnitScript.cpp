@@ -7,10 +7,6 @@
 #include "System/Misc/TracyDefs.h"
 
 
-// keep one global copy so we don't need to allocate a lot of
-// near empty objects for mods that use Lua unit scripts.
-CNullUnitScript CNullUnitScript::value(nullptr);
-
 CR_BIND_DERIVED(CNullUnitScript, CUnitScript, (nullptr))
 
 CR_REG_METADATA(CNullUnitScript, (

@@ -14,7 +14,6 @@ CR_REG_METADATA(LocalModelPiece, (
 	CR_MEMBER(dir),
 	CR_MEMBER(colvol),
 	CR_MEMBER(scriptSetVisible),
-	CR_MEMBER(blockScriptAnims),
 	CR_MEMBER(lmodelPieceIndex),
 	CR_MEMBER(scriptPieceIndex),
 	CR_MEMBER(parent),
@@ -24,7 +23,6 @@ CR_REG_METADATA(LocalModelPiece, (
 	// reload
 	CR_IGNORED(original),
 
-	CR_MEMBER(dirty),
 	CR_MEMBER(wasUpdated),
 	CR_MEMBER(modelSpaceTra),
 	CR_MEMBER(pieceSpaceTra),
@@ -39,11 +37,9 @@ CR_REG_METADATA(LocalModelPiece, (
 
 LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	: colvol(piece->GetCollisionVolume())
-	, dirty(true)
 	, wasUpdated{ true }
 
 	, scriptSetVisible(true)
-	, blockScriptAnims(false)
 
 	, lmodelPieceIndex(-1)
 	, scriptPieceIndex(-1)
@@ -57,7 +53,11 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	auto [pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
 
-	lmpe.Add<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
+	lmpe.Add<
+		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
+		ParentRelationship,
+		Dirty
+	>();
 
 	dir = piece->GetEmitDir();
 
@@ -67,15 +67,54 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	children.reserve(piece->children.size());
 }
 
-void LocalModelPiece::SetDirty() {
+void LocalModelPiece::AddChild(LocalModelPiece* c)
+{
+	assert(c != nullptr);
+
+	using namespace LMP;
+	auto& cr = c->GetLocalModelPieceEntity().Get<ParentRelationship>();
+	cr.parent = lmpe.EntityID();
+
+	c->parent = this;
+	children.push_back(c);
+}
+
+void LocalModelPiece::RemoveChild(LocalModelPiece* c)
+{
+	assert(c != nullptr);
+
+	using namespace LMP;
+	auto& cr = c->GetLocalModelPieceEntity().Get<ParentRelationship>();
+	cr.parent = ECS::NullEntity;
+
+	c->parent = nullptr;
+
+	children.erase(std::find(children.begin(), children.end(), c));
+}
+
+// note const is fake here
+void LocalModelPiece::SetDirty(bool state) const {
 	RECOIL_DETAILED_TRACY_ZONE;
-	dirty = true;
+
+	using namespace LMP;
+
+	// hack to override the constness
+	auto& dirty = const_cast<LocalModelPieceEntity*>(&lmpe)->Get<Dirty>();
+	dirty = state;
 
 	for (LocalModelPiece* child: children) {
-		if (child->dirty)
+		if (child->GetDirty())
 			continue;
-		child->SetDirty();
+
+		child->SetDirty(state);
 	}
+}
+
+bool LocalModelPiece::GetDirty() const
+{
+	using namespace LMP;
+
+	return lmpe.Get<Dirty>();
 }
 
 const float3& LocalModelPiece::GetPosition() const {
@@ -90,13 +129,13 @@ const float3& LocalModelPiece::GetRotation() const {
 
 void LocalModelPiece::SetPosition(const float3& p) {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (blockScriptAnims)
+	if (GetBlockScriptAnims())
 		return;
 
 	using namespace LMP;
 	auto& pos = lmpe.Get<Position>();
-	if (!dirty && !p.same(pos)) {
-		SetDirty();
+	if (!GetDirty() && !p.same(pos)) {
+		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
 	}
@@ -106,13 +145,13 @@ void LocalModelPiece::SetPosition(const float3& p) {
 
 void LocalModelPiece::SetRotation(const float3& r) {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (blockScriptAnims)
+	if (GetBlockScriptAnims())
 		return;
 
 	using namespace LMP;
 	auto& rot = lmpe.Get<Rotation>();
-	if (!dirty && !r.same(rot)) {
-		SetDirty();
+	if (!GetDirty() && !r.same(rot)) {
+		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
 	}
@@ -138,6 +177,25 @@ void LocalModelPiece::SetScalingNoInterpolation(bool noInterpolate)
 	lmpe.Set<ScalingNoInterpolation>(noInterpolate);
 }
 
+void LocalModelPiece::SetBlockScriptAnims(bool b)
+{
+	using namespace LMP;
+
+	if (b) {
+		lmpe.Add<BlockScriptAnims>();
+	}
+	else if (lmpe.Has<BlockScriptAnims>()) {
+		lmpe.Remove<BlockScriptAnims>();
+	}
+}
+
+bool LocalModelPiece::GetBlockScriptAnims() const
+{
+	using namespace LMP;
+
+	return lmpe.Has<BlockScriptAnims>();
+}
+
 void LocalModelPiece::ResetWasUpdated() const
 {
 	// wasUpdated needs to trigger twice because otherwise
@@ -152,15 +210,38 @@ void LocalModelPiece::ResetWasUpdated() const
 
 	// use this call to also reset noInterpolation
 	using namespace LMP;
-	auto [pni, rni, sni] = lmpe.Get<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
+	// hack to override the constness
+	auto [pni, rni, sni] = const_cast<LocalModelPieceEntity*>(&lmpe)->Get<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
 	pni = false;
 	rni = false;
 	sni = false;
 }
 
+bool LocalModelPiece::SetPieceSpaceMatrix(const CMatrix44f& mat)
+{
+	using namespace LMP;
+
+	const bool goodMatrixProvided = mat.GetX() != ZeroVector;
+	// In case the matrix is good - block the animations and use the matrix data instead
+	// In case the matrix is not good - do not block the animations
+	SetBlockScriptAnims(goodMatrixProvided);
+
+	if (!goodMatrixProvided)
+		return false;
+
+	pieceSpaceTra = Transform::FromMatrix(mat);
+
+	// neither of these are used outside of animation scripts, and
+	// GetEulerAngles wants a matrix created by PYR rotation while
+	// <rot> is YPR
+	// pos = mat.GetPos();
+	// rot = mat.GetEulerAnglesLftHand();
+	return true;
+}
+
 const Transform& LocalModelPiece::GetModelSpaceTransform() const
 {
-	if (dirty)
+	if (GetDirty())
 		UpdateParentMatricesRec();
 
 	return modelSpaceTra;
@@ -168,7 +249,7 @@ const Transform& LocalModelPiece::GetModelSpaceTransform() const
 
 const CMatrix44f& LocalModelPiece::GetModelSpaceMatrix() const
 {
-	if (dirty)
+	if (GetDirty())
 		UpdateParentMatricesRec();
 
 	return modelSpaceMat;
@@ -206,8 +287,8 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
 
-	if (dirty) {
-		dirty = false;
+	if (GetDirty()) {
+		SetDirty(false);
 		wasUpdated[0] = true;  //update for current frame
 		updateChildTransform = true;
 
@@ -233,10 +314,10 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 void LocalModelPiece::UpdateParentMatricesRec() const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (parent != nullptr && parent->dirty)
+	if (parent != nullptr && parent->GetDirty())
 		parent->UpdateParentMatricesRec();
 
-	dirty = false;
+	SetDirty(false);
 	wasUpdated[0] = true;  //update for current frame
 
 	using namespace LMP;
@@ -258,7 +339,7 @@ Transform LocalModelPiece::CalcPieceSpaceTransformOrig(const float3& p, const fl
 
 Transform LocalModelPiece::CalcPieceSpaceTransform(const float3& p, const float3& r, float s) const
 {
-	if (blockScriptAnims)
+	if (GetBlockScriptAnims())
 		return pieceSpaceTra;
 
 	return CalcPieceSpaceTransformOrig(p, r, s);

@@ -5,7 +5,7 @@
 #include "CobFileHandler.h"
 #include "CobInstance.h"
 #include "LuaUnitScript.h"
-#include "NullUnitScript.h"
+#include "UnitScriptEngine.h"
 
 #include "Sim/Units/Unit.h"
 #include "Sim/Units/UnitDef.h"
@@ -28,7 +28,7 @@ void CUnitScriptFactory::InitStatic()
 CUnitScript* CUnitScriptFactory::CreateScript(CUnit* unit, const UnitDef* udef)
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	CUnitScript* script = &CNullUnitScript::value;
+	CUnitScript* script = unitScriptEngine->GetNullUnitScript();
 
 	// NOTE:
 	//   Lua scripts are not loaded here but deferred to LuaUnitScript::CreateScript

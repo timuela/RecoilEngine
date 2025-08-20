@@ -8,7 +8,7 @@
 #include "UnitMemPool.h"
 #include "UnitToolTipMap.hpp"
 #include "UnitTypes/Building.h"
-#include "Scripts/NullUnitScript.h"
+#include "Scripts/UnitScriptEngine.h"
 #include "Scripts/UnitScriptFactory.h"
 #include "Scripts/CobInstance.h" // for TAANG2RAD
 
@@ -636,10 +636,10 @@ void CUnit::Drop(const float3& parentPos, const float3& parentDir, CUnit* parent
 void CUnit::DeleteScript()
 {
 	RECOIL_DETAILED_TRACY_ZONE;
-	if (script != &CNullUnitScript::value)
+	if (script != unitScriptEngine->GetNullUnitScript())
 		spring::SafeDestruct(script);
 
-	script = &CNullUnitScript::value;
+	script = unitScriptEngine->GetNullUnitScript();
 }
 
 void CUnit::EnableScriptMoveType()

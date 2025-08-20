@@ -1,11 +1,26 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef ECS_MAIN_H__
-#define ECS_MAIN_H__
+#pragma once
 
 #define ENTT_USE_ATOMIC
 
 #include "lib/entt/src/entt/entt.hpp"
+
+namespace ECS {
+	using EntityType = entt::entity;
+	static constexpr EntityType NullEntity = entt::null;
+
+	template<typename... T>
+	using EntityExcludeType = entt::exclude_t<T...>;
+	template<typename... T>
+	using EntityIncludeType = entt::get_t<T...>;
+
+	template<typename... T>
+	inline constexpr EntityExcludeType<T...> EntityExclude{};
+
+	template<typename... T>
+	inline constexpr EntityIncludeType<T...> EntityInclude{};
+}
 
 // class EcsMain {
 // public:
@@ -44,6 +59,3 @@
 //     if (comp != nullptr)
 //         *comp += addition;
 // }
-
-
-#endif
