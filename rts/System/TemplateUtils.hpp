@@ -73,6 +73,74 @@ namespace spring {
 		tuple_exec_at_impl(index, t, std::forward<Func>(f), std::make_index_sequence<std::tuple_size_v<Tuple>>{});
 	}
 
+	template<typename... Types>
+	struct type_list_t {
+		using type = type_list_t;
+		static constexpr auto size = sizeof...(Types);
+
+		// Prepend helper
+		template<typename T>
+		using prepend = type_list_t<T, Types...>;
+	};
+
+	template<typename... Type>
+	static constexpr type_list_t<Type...> type_list{};
+
+	// Filter out 'void' from type_list_t
+	template<typename... Types>
+	struct type_list_skip_void;
+
+	// Base case: empty list
+	template<>
+	struct type_list_skip_void<> {
+		using type = type_list_t<>;
+	};
+
+	// Head is void: skip it
+	template<typename... Tail>
+	struct type_list_skip_void<void, Tail...> : type_list_skip_void<Tail...> {};
+
+	// Head is not void: keep it
+	template<typename Head, typename... Tail>
+	struct type_list_skip_void<Head, Tail...> {
+		using type = typename type_list_skip_void<Tail...>::type::template prepend<Head>;
+	};
+
+	template<typename... Types>
+	using type_list_skip_void_t = typename type_list_skip_void<Types...>::type;
+
+	template<typename... Types>
+	static constexpr auto type_list_skip_void_t_v = type_list_skip_void_t<Types...>{};
+
+	template <typename Func, typename Tuple>
+	struct is_tuple_list_args_invocable;
+
+	template <typename Func, typename... Args>
+	struct is_tuple_list_args_invocable<Func, std::tuple<Args...>> {
+		static constexpr auto value = std::is_invocable<Func, Args...>::value;
+	};
+
+	template <typename Func, typename Tuple>
+	static constexpr bool is_tuple_list_args_invocable_v = is_tuple_list_args_invocable<Func, Tuple>::value;
+
+	// Helper: returns empty tuple if N==0, else tuple_cat with the indices
+	template <typename Tuple, std::size_t... Is>
+	auto tuple_pop_back_impl(const Tuple& t, std::index_sequence<Is...>) {
+		if constexpr (sizeof...(Is) == 0) {
+			return std::tuple<>{};
+		}
+		else {
+			return std::tuple_cat(std::make_tuple(std::get<Is>(t))...);
+		}
+	}
+
+	// Removes last element from tuple, returns empty tuple if input tuple is empty
+	template <typename... Ts>
+	auto tuple_pop_back_type(const std::tuple<Ts...>& t) {
+		constexpr std::size_t N = sizeof...(Ts);
+		return tuple_pop_back_impl(t, std::make_index_sequence<(N > 0 ? N - 1 : 0)>{});
+	}
+
 	// https://blog.tartanllama.xyz/exploding-tuples-fold-expressions/
 	template <std::size_t... Idx>
 	auto make_index_dispatcher(std::index_sequence<Idx...>) {

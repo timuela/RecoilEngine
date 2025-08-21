@@ -237,7 +237,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachView<Rotation, Dirty, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& dirty, auto&& noInterpolate, auto&& ai) {
+				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -255,10 +255,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				});
+				}, EntityInclude<Dirty>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachView<Rotation, Dirty, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& dirty, auto&& noInterpolate, auto&& ai) {
+				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -276,10 +276,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				});
+				}, EntityInclude<Dirty>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachView<Position, Dirty, PositionNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& pos, auto&& dirty, auto&& noInterpolate, auto&& ai) {
+				LocalModelPieceEntity::ForEachGroup<Position, PositionNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -298,7 +298,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				});
+				}, EntityInclude<Dirty>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
@@ -362,31 +362,6 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			((FinalizeAnimation(args)), ...);
 		}, animTuple);
 	}
-
-	/*
-	// tick all (COB or LUS) script instances that have registered themselves as animating
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(MT)");
-
-		// setting currentScript = animating[i]; is not required here, only in ST section below
-		for_mt(0, animating.size(), [&](const int i) {
-			animating[i]->TickAllAnims(deltaTime);
-		});
-	}
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST)");
-		for (size_t i = 0; i < animating.size(); ) {
-			currentScript = animating[i];
-
-			if (!currentScript->TickAnimFinished(deltaTime)) {
-				animating[i] = animating.back();
-				animating.pop_back();
-				continue;
-			}
-			i++;
-		}
-	}
-	*/
 
 	cobEngine->RunDeferredCallins();
 }
