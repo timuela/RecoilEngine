@@ -230,7 +230,7 @@ namespace ECS {
 					return std::tuple<>{};
 				}
 				else {
-					return std::make_tuple(r.template get<Type>(entity));
+					return std::forward_as_tuple(r.template get<Type>(entity));
 				}
 			};
 
