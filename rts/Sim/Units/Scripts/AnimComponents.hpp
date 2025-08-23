@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "System/Ecs/Components/BaseComponents.h"
+#include "System/TemplateUtils.hpp"
 
 #include "AnimTypes.hpp"
 
@@ -54,7 +55,7 @@ namespace Concepts {
 		std::same_as<std::remove_const_t<decltype(T::animAxis)>, size_t>;
 }
 
-using AnimComponentTuple = std::tuple<
+static constexpr auto AnimComponentList = spring::type_list<
 	AnimInfoTurnX,
 	AnimInfoTurnY,
 	AnimInfoTurnZ,
