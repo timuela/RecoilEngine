@@ -401,7 +401,7 @@ void CUnitScript::MoveNow(int piece, int axis, float destination)
 
 	pos[axis] = ofs[axis] + destination;
 
-	p->SetPosition(pos);
+	p->SetPosition(pos, axis);
 	p->SetPositionNoInterpolation(true);
 }
 
@@ -420,7 +420,7 @@ void CUnitScript::TurnNow(int piece, int axis, float destination)
 	float3 rot = p->GetRotation();
 	rot[axis] = destination;
 
-	p->SetRotation(rot);
+	p->SetRotation(rot, axis);
 	p->SetRotationNoInterpolation(true);
 }
 
