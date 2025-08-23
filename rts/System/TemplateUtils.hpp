@@ -47,99 +47,30 @@ namespace spring {
 	template<typename... Args>
 	inline constexpr bool is_signature_v = is_signature<Args...>::value;
 
-	// cpp20 compat
-	template< class T >
-	struct remove_cvref {
-		typedef std::remove_cv_t<std::remove_reference_t<T>> type;
-	};
-
-	// Generic dispatcher using lambda array, w/o recursion
-	template<typename Tuple, typename Func, std::size_t... Is>
-	inline void tuple_exec_at_impl(size_t index, Tuple& t, Func&& f, std::index_sequence<Is...>)
-	{
-		using FnType = void(*)(Tuple&, Func&&);
-		static constexpr FnType table[] = {
-			[](Tuple& tup, Func&& func) { func(std::get<Is>(tup)); }...
-		};
-		if (index < sizeof...(Is))
-			table[index](t, std::forward<Func>(f));
-		else
-			throw std::out_of_range("tuple index out of range");
-	}
-
-	template<typename Tuple, typename Func>
-	inline void tuple_exec_at(size_t index, Tuple& t, Func&& f)
-	{
-		tuple_exec_at_impl(index, t, std::forward<Func>(f), std::make_index_sequence<std::tuple_size_v<Tuple>>{});
-	}
-
-	template<typename... Types>
+	template<typename... Type>
 	struct type_list_t {
 		using type = type_list_t;
-		static constexpr auto size = sizeof...(Types);
-
-		// Prepend helper
-		template<typename T>
-		using prepend = type_list_t<T, Types...>;
+		static constexpr auto size = sizeof...(Type);
 	};
 
 	template<typename... Type>
 	static constexpr type_list_t<Type...> type_list{};
 
-	// Filter out 'void' from type_list_t
-	template<typename... Types>
-	struct type_list_skip_void;
+	template<std::size_t, typename>
+	struct type_list_element;
 
-	// Base case: empty list
-	template<>
-	struct type_list_skip_void<> {
-		using type = type_list_t<>;
+	template<std::size_t Index, typename Type, typename... Other>
+	struct type_list_element<Index, type_list_t<Type, Other...>>
+		: type_list_element<Index - 1u, type_list_t<Other...>> {
 	};
 
-	// Head is void: skip it
-	template<typename... Tail>
-	struct type_list_skip_void<void, Tail...> : type_list_skip_void<Tail...> {};
-
-	// Head is not void: keep it
-	template<typename Head, typename... Tail>
-	struct type_list_skip_void<Head, Tail...> {
-		using type = typename type_list_skip_void<Tail...>::type::template prepend<Head>;
+	template<typename Type, typename... Other>
+	struct type_list_element<0u, type_list_t<Type, Other...>> {
+		using type = Type;
 	};
 
-	template<typename... Types>
-	using type_list_skip_void_t = typename type_list_skip_void<Types...>::type;
-
-	template<typename... Types>
-	static constexpr auto type_list_skip_void_t_v = type_list_skip_void_t<Types...>{};
-
-	template <typename Func, typename Tuple>
-	struct is_tuple_list_args_invocable;
-
-	template <typename Func, typename... Args>
-	struct is_tuple_list_args_invocable<Func, std::tuple<Args...>> {
-		static constexpr auto value = std::is_invocable<Func, Args...>::value;
-	};
-
-	template <typename Func, typename Tuple>
-	static constexpr bool is_tuple_list_args_invocable_v = is_tuple_list_args_invocable<Func, Tuple>::value;
-
-	// Helper: returns empty tuple if N==0, else tuple_cat with the indices
-	template <typename Tuple, std::size_t... Is>
-	auto tuple_pop_back_impl(const Tuple& t, std::index_sequence<Is...>) {
-		if constexpr (sizeof...(Is) == 0) {
-			return std::tuple<>{};
-		}
-		else {
-			return std::tuple_cat(std::make_tuple(std::get<Is>(t))...);
-		}
-	}
-
-	// Removes last element from tuple, returns empty tuple if input tuple is empty
-	template <typename... Ts>
-	auto tuple_pop_back_type(const std::tuple<Ts...>& t) {
-		constexpr std::size_t N = sizeof...(Ts);
-		return tuple_pop_back_impl(t, std::make_index_sequence<(N > 0 ? N - 1 : 0)>{});
-	}
+	template<std::size_t Index, typename List>
+	using type_list_element_t = typename type_list_element<Index, List>::type;
 
 	// https://blog.tartanllama.xyz/exploding-tuples-fold-expressions/
 	template <std::size_t... Idx>
@@ -281,6 +212,57 @@ namespace spring {
 
 	template<auto FuncPtr, typename... FallbackSignature>
 	using func_ptr_signature_t = typename func_ptr_signature<FuncPtr, FallbackSignature...>::type;
+
+	// Generic dispatcher using lambda array, w/o recursion
+	template<typename Tuple, typename Func, std::size_t... Is>
+	inline void tuple_exec_at_impl(size_t index, Tuple& t, Func&& f, std::index_sequence<Is...>)
+	{
+		using FnType = void(*)(Tuple&, Func&&);
+		static constexpr FnType table[] = {
+			[](Tuple& t, Func&& func) { func(std::get<Is>(t)); }...
+		};
+		if (index < sizeof...(Is))
+			table[index](t, std::forward<Func>(f));
+		else
+			throw std::out_of_range("tuple index out of range");
+	}
+
+	template<typename Tuple, typename Func>
+	inline void tuple_exec_at(size_t index, Tuple& t, Func&& f)
+	{
+		tuple_exec_at_impl(index, t, std::forward<Func>(f), std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+	}
+
+	// The same as above, but for type lists
+	template<typename TypeList, typename Func, std::size_t... Is>
+	inline void type_list_exec_at_impl(size_t index, TypeList&& t, Func&& f, std::index_sequence<Is...>)
+	{
+		using FnType = void(*)(TypeList&&, Func&&);
+		static constexpr FnType table[] = {
+			[](TypeList&&, Func&& func) { func(type_list_element_t<Is, std::decay_t<TypeList>> {}); }...
+		};
+		if (index < sizeof...(Is))
+			table[index](std::forward<TypeList>(t), std::forward<Func>(f));
+		else
+			throw std::out_of_range("type list index out of range");
+	}
+
+	template<typename TypeList, typename Func>
+	inline void type_list_exec_at(size_t index, TypeList&& typeList, Func&& f)
+	{
+		using TypeListDecayed = std::decay_t<TypeList>;
+		type_list_exec_at_impl(index, std::forward<TypeList>(typeList), std::forward<Func>(f), std::make_index_sequence<TypeListDecayed::size>{});
+	}
+
+	template<typename... T, typename F>
+	constexpr decltype(auto) type_list_exec_all(type_list_t<T...>, F&& f) {
+		if constexpr (std::is_void_v<return_type_t<F>>) {
+			std::forward_as_tuple(f(T{})...);
+		}
+		else {
+			(f(T{}), ...);
+		}
+	}
 };
 
 namespace Recoil {

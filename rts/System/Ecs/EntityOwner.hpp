@@ -223,29 +223,24 @@ namespace ECS {
 			}
 		}
 
+		template<typename T, typename R>
+		inline decltype(auto) static forward_non_tag_component(R& r, EntityType entity) {
+			if constexpr (entt::is_ebco_eligible_v<T>) {
+				return std::tuple<>{};
+			}
+			else {
+				return std::forward_as_tuple(r.template get<T>(entity));
+			}
+		}
+
 		template<typename... Ts, typename R>
 		inline decltype(auto) static make_arg_tuple(R& r, EntityType entity, spring::type_list_t<Ts...> tl) {
-			auto TypeTuple = [&]<typename Type>(spring::type_list_t<Type> tt) {
-				if constexpr (entt::is_ebco_eligible_v<Type>) {
-					return std::tuple<>{};
-				}
-				else {
-					return std::forward_as_tuple(r.template get<Type>(entity));
-				}
-			};
-
 			return std::tuple_cat(
 				std::make_tuple(EntityReference<TypeTag>(entity)),
-				TypeTuple(spring::type_list_t<Ts>{})...
+				forward_non_tag_component<Ts>(r, entity)...
 			);
 		}
 
-		template<typename... Types>
-		struct no_void_types {
-			using type = spring::type_list_skip_void_t<std::conditional_t<!entt::is_ebco_eligible_v<Types>, Types, void>...>;
-		};
-		template<typename... Types>
-		using no_void_types_t = typename no_void_types<Types...>::type;
 	protected:
 		EntityType entity{ NullEntity };
 		static inline entt::registry registry{};

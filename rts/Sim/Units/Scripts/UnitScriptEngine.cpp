@@ -222,9 +222,6 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	using namespace LMP;
 
-	//unused, but needed to deduce the tuple member types
-	static constexpr AnimComponentTuple animTuple; 
-
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT)");
 
@@ -299,7 +296,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			}
 */
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation,AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation,AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -315,10 +312,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-					}, EntityExclude<BlockScriptAnims>);
+				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -334,10 +331,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-					}, EntityExclude<BlockScriptAnims>);
+				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachView<Position, PositionNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
@@ -354,16 +351,14 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-					}, EntityExclude<BlockScriptAnims>);
+				}, EntityExclude<BlockScriptAnims>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
 			}
 		};
 
-		std::apply([&](auto&&... args) {
-			((ExecuteAnimation(args)), ...);
-		}, animTuple);
+		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
 	}
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-1)");
@@ -414,9 +409,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			});
 		};
 
-		std::apply([&](auto&&... args) {
-			((FinalizeAnimation(args)), ...);
-		}, animTuple);
+		spring::type_list_exec_all(AnimComponentList, FinalizeAnimation);
 	}
 
 	cobEngine->RunDeferredCallins();

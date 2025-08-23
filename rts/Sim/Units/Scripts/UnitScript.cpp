@@ -77,11 +77,9 @@ namespace Impl {
 	template<typename Func>
 	void exec_anim_type_axis(int animType, int animAxis, Func&& f)
 	{
-		static constexpr AnimComponentTuple tup;
-
 		const size_t idx = animType * AnimAxisCount + animAxis;
 #ifdef _DEBUG
-		spring::tuple_exec_at(idx, tup, [&f, at = animType, ax = animAxis](auto&& t) {
+		spring::type_list_exec_at(idx, AnimComponentList, [&f, at = animType, ax = animAxis](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
 			static constexpr auto animType = AnimInfoType::animType;
@@ -93,7 +91,7 @@ namespace Impl {
 			f(std::forward<decltype(t)>(t));
 		});
 #else
-		spring::tuple_exec_at(idx, tup, f);
+		spring::type_list_exec_at(idx, AnimComponentList, f);
 #endif
 	}
 
