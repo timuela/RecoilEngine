@@ -235,14 +235,12 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
-
+/*
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
-					if (entityRef.template Has<BlockScriptAnims>())
-						return;
 
 					const auto curValue = rot.value[animAxis];
 					auto newValue = ClampRad(curValue);
@@ -255,15 +253,13 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				}, EntityInclude<Dirty>);
+				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
-					if (entityRef.template Has<BlockScriptAnims>())
-						return;
 
 					const auto curValue = rot.value[animAxis];
 					auto newValue = ClampRad(curValue);
@@ -276,15 +272,13 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				}, EntityInclude<Dirty>);
+				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachGroup<Position, PositionNoInterpolation, AnimInfoType>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+				LocalModelPieceEntity::ForEachGroup<Position, PositionNoInterpolation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					using namespace LMP;
 
 					noInterpolate = false;
-					if (entityRef.template Has<BlockScriptAnims>())
-						return;
 
 					const auto curValue = pos.value[animAxis];
 					auto newValue = pos.value[animAxis];
@@ -298,7 +292,69 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation of dirty flag later
 					dirty = true;
-				}, EntityInclude<Dirty>);
+				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
+			}
+			else {
+				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
+			}
+*/
+			if constexpr (animType == ATurn) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation,AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+					using namespace LMP;
+
+					noInterpolate = false;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::TurnToward(newValue, ai.dest, ai.speed / tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
+					}, EntityExclude<BlockScriptAnims>);
+			}
+			else if constexpr (animType == ASpin) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+					using namespace LMP;
+
+					noInterpolate = false;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::DoSpin(newValue, ai.dest, ai.speed, ai.accel, tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
+					}, EntityExclude<BlockScriptAnims>);
+			}
+			else if constexpr (animType == AMove) {
+				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
+					using namespace LMP;
+
+					noInterpolate = false;
+
+					const auto curValue = pos.value[animAxis];
+					auto newValue = pos.value[animAxis];
+					ai.done |= Impl::MoveToward(newValue, ai.dest, ai.speed / tickRate);
+					pos.value[animAxis] = newValue;
+
+					if (curValue == newValue)
+						return;
+
+					pos.value[animAxis] = newValue;
+
+					// will do recursive propagation of dirty flag later
+					dirty = true;
+					}, EntityExclude<BlockScriptAnims>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");

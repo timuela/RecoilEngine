@@ -16,6 +16,21 @@ namespace ECS {
 	template <typename TypeTag>
 	class EntityReference;
 
+	template <typename... T>
+	struct OwnedComponentsListT : spring::type_list_t<T...> {};
+	template <typename... T>
+	struct ObservedComponentsListT : spring::type_list_t<T...> {};
+	template <typename... T>
+	struct ExcludedComponentsListT : spring::type_list_t<T...> {};
+
+	template <typename... T>
+	static constexpr OwnedComponentsListT OwnedComponentsList{};
+	template <typename... T>
+	static constexpr ObservedComponentsListT ObservedComponentsList{};
+	template <typename... T>
+	static constexpr ExcludedComponentsListT ExcludedComponentsList{};
+
+
 	template <typename TypeTag>
 	class EntityBase {
 	protected:
@@ -105,73 +120,83 @@ namespace ECS {
 		}
 
 		template<typename... Components, typename... ExcludedComponents, typename Func>
-		inline static void ForEachView(const Func& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static void ForEachView(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.view<Components...>(excl);
 			for (auto entity : entities) {
-				func(EntityReference<TypeTag>(entity), entities.template get<Components>(entity)...);
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
 			}
 		}
 
 		template<typename... Components, typename... ExcludedComponents, typename Func>
-		inline static auto ForEachViewAsync(const Func& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static auto ForEachViewAsync(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
 			return ThreadPool::Enqueue([excl, func]() {
 				auto entities = registry.view<Components...>(excl);
 				for (auto entity : entities) {
-					func(EntityReference<TypeTag>(entity), entities.template get<Components>(entity)...);
+					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
 				}
 			});
 		}
 
 		template<typename... Components, typename... ExcludedComponents, typename Func>
-		inline static void ForEachViewParallel(const Func& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static void ForEachViewParallel(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.view<Components...>(excl);
-			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
-				const auto entity = entities[i];
-				func(EntityReference<TypeTag>(entity), entities.template get<Components>(entity)...);
+
+			// entities doesn't allow for random access, so we need to copy them to a vector first
+			static std::vector<EntityType> entitiesVec;
+			entitiesVec.clear();
+			entitiesVec.reserve(entities.size_hint());
+			for (auto entity : entities) { entitiesVec.emplace_back(entity); }
+
+			for_mt_chunk(0, entitiesVec.size(), [&entities, &func](int i) {
+				const auto entity = entitiesVec[i];
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
 			});
 		}
 
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
-		inline static void ForEachGroup(const Func& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static void ForEachGroup(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
+			spring::type_list_t<OwnedComponents...> owned;
 			auto entities = registry.group<OwnedComponents...>(obsv, excl);
-			try_invoke_with_arguments<OwnedComponents..., ObservedComponents...>(entities, func);
+			for (auto entity : entities) {
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
+			}
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
-		inline static void ForEachGroup(const Func& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static void ForEachGroup(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(excl);
 			for (auto entity : entities) {
-				func(EntityReference<TypeTag>(entity), entities.template get<OwnedComponents>(entity)...);
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 			}
 		}
 
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
-		inline static auto ForEachGroupAsync(const Func& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static auto ForEachGroupAsync(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
 			return ThreadPool::Enqueue([obsv, excl, func]() {
 				auto entities = registry.group<OwnedComponents...>(obsv, excl);
 				for (auto entity : entities) {
-					func(EntityReference<TypeTag>(entity), entities.template get<OwnedComponents>(entity)...);
+					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
 				}
 			});
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
-		inline static auto ForEachGroupAsync(const Func& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static auto ForEachGroupAsync(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
 			return ThreadPool::Enqueue([excl, func]() {
 				auto entities = registry.group<OwnedComponents...>(excl);
 				for (auto entity : entities) {
-					func(EntityReference<TypeTag>(entity), entities.template get<OwnedComponents>(entity)...);
+					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 				}
 			});
 		}
 
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
-		inline static void ForEachGroupParallel(const Func& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		inline static void ForEachGroupParallel(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(obsv, excl);
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
-				func(EntityReference<TypeTag>(entity), entities.template get<OwnedComponents>(entity)...);
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
 			});
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
@@ -179,7 +204,7 @@ namespace ECS {
 			auto entities = registry.group<OwnedComponents...>(excl);
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
-				func(EntityReference<TypeTag>(entity), entities.template get<OwnedComponents>(entity)...);
+				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 			});
 		}
 
@@ -198,54 +223,29 @@ namespace ECS {
 			}
 		}
 
-		template<typename R, typename... Types>
-		inline static decltype(auto) get_tuple_from_type_list(R& r, entt::entity entity, spring::type_list_t<Types...> t) {
-			if constexpr (sizeof...(Types) == 0) {
-				return std::tuple<>{};
-			}
-			else {
-				return std::make_tuple(r.template get<Types>(entity)...);
-			}
-		}
-
-		template<typename R, typename... Types>
-		inline static decltype(auto) get_type_list(R& r, entt::entity entity, spring::type_list_t<Types...> t) {
-			using NoVoidList = spring::type_list_skip_void_t<std::conditional_t<!entt::is_ebco_eligible_v<Types>, Types, void>...>;
-			return get_tuple_from_type_list(r, entity, NoVoidList{});
-		}
-
-		template<typename... Types, typename R, typename Func>
-		inline static void try_invoke_with_tuple_args(R& r, const Func& func, std::tuple<Types...>&& allArgsTuple) {
-			using AllArgsTuple = std::decay_t<decltype(allArgsTuple)>;
-
-			if constexpr (spring::is_tuple_list_args_invocable_v<Func, AllArgsTuple>) {
-				// Success: invoke
-				std::apply(func, std::move(allArgsTuple));
-			}
-			else {
-				// Fail: try popping an optional arg (if any remain)
-				constexpr std::size_t N = std::tuple_size_v<AllArgsTuple>;
-				if constexpr (N > 0) {
-					try_invoke_with_tuple_args(r, func, spring::tuple_pop_back_type(allArgsTuple));
+		template<typename... Ts, typename R>
+		inline decltype(auto) static make_arg_tuple(R& r, EntityType entity, spring::type_list_t<Ts...> tl) {
+			auto TypeTuple = [&]<typename Type>(spring::type_list_t<Type> tt) {
+				if constexpr (entt::is_ebco_eligible_v<Type>) {
+					return std::tuple<>{};
 				}
 				else {
-					static_assert(Recoil::always_false_v<Func>, "No valid overload found for given function and args.");
+					return std::make_tuple(r.template get<Type>(entity));
 				}
-			}
+			};
+
+			return std::tuple_cat(
+				std::make_tuple(EntityReference<TypeTag>(entity)),
+				TypeTuple(spring::type_list_t<Ts>{})...
+			);
 		}
 
-		template<typename... Types, typename R, typename Func>
-		inline static void try_invoke_with_arguments(R& r, const Func& func) {
-			for (auto entity : r) {
-				auto allArgsTuple = std::tuple_cat(
-					std::make_tuple(EntityReference<TypeTag>(entity)),
-					get_type_list(r, entity, spring::type_list_t<Types...>{})
-				);
-
-				try_invoke_with_tuple_args(r, func, std::move(allArgsTuple));
-			}
-		}
-
+		template<typename... Types>
+		struct no_void_types {
+			using type = spring::type_list_skip_void_t<std::conditional_t<!entt::is_ebco_eligible_v<Types>, Types, void>...>;
+		};
+		template<typename... Types>
+		using no_void_types_t = typename no_void_types<Types...>::type;
 	protected:
 		EntityType entity{ NullEntity };
 		static inline entt::registry registry{};

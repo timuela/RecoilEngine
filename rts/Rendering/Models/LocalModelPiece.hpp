@@ -59,8 +59,8 @@ struct LocalModelPiece
 
 	void SetDirty(bool state) const; //needs fake constness;
 	bool GetDirty() const;
-	void SetPosition(const float3& p); // anim-script only
-	void SetRotation(const float3& r); // anim-script only
+	void SetPosition(const float3& p, int onAxis); // anim-script only
+	void SetRotation(const float3& r, int onAxis); // anim-script only
 
 	void SetRotationNoInterpolation(bool noInterpolate);
 	void SetPositionNoInterpolation(bool noInterpolate);

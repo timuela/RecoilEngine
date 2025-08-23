@@ -127,36 +127,36 @@ const float3& LocalModelPiece::GetRotation() const {
 	return lmpe.Get<Rotation>();
 }
 
-void LocalModelPiece::SetPosition(const float3& p) {
+void LocalModelPiece::SetPosition(const float3& p, int onAxis) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (GetBlockScriptAnims())
 		return;
 
 	using namespace LMP;
 	auto& pos = lmpe.Get<Position>();
-	if (!GetDirty() && !p.same(pos)) {
+	if (!GetDirty() && !p[onAxis] == pos.value[onAxis]) {
 		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
 	}
 
-	pos = p;
+	pos.value[onAxis] = p[onAxis];
 }
 
-void LocalModelPiece::SetRotation(const float3& r) {
+void LocalModelPiece::SetRotation(const float3& r, int onAxis) {
 	RECOIL_DETAILED_TRACY_ZONE;
 	if (GetBlockScriptAnims())
 		return;
 
 	using namespace LMP;
 	auto& rot = lmpe.Get<Rotation>();
-	if (!GetDirty() && !r.same(rot)) {
+	if (!GetDirty() && !r[onAxis] == rot.value[onAxis]) {
 		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
 	}
 
-	rot = r;
+	rot.value[onAxis] = r[onAxis];
 }
 
 void LocalModelPiece::SetRotationNoInterpolation(bool noInterpolate)
