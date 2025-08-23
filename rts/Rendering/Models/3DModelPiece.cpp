@@ -201,8 +201,7 @@ Transform S3DModelPiece::ComposeTransform(const float3& t, const float3& r, floa
 	Transform tra;
 	tra.t = t;
 
-	if (hasBakedTra)
-		tra *= bakedTransform;
+	tra *= bakedTransform;
 
 	tra *= Transform(CQuaternion::FromEulerYPRNeg(-r), ZeroVector, s);
 	return tra;

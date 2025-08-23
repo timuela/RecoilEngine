@@ -15,6 +15,7 @@
 #include "Sim/Units/Unit.h"
 #include "Sim/Units/UnitDef.h"
 #include "Sim/Units/UnitHandler.h"
+#include "System/Transform.hpp"
 #include "System/ContainerUtil.h"
 #include "System/SafeUtil.h"
 #include "System/Config/ConfigHandler.h"
@@ -221,14 +222,13 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	cobEngine->Tick(deltaTime);
 
 	using namespace LMP;
+	using namespace ECS;
 
 	{
-		ZoneScopedN("CUnitScriptEngine::Tick(MT)");
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-0)");
 
 		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
-
-			using namespace ECS;
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
@@ -388,7 +388,55 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		}
 	}
 	{
+		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
+		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
+
+		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedRotation, const Position, const Rotation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedQuat, auto&& pos, auto&& yprRot) {
+
+			if (!dirty)
+				return;
+
+			// Simplified copy of S3DModelPiece::ComposeTransform()
+			const auto rq = CQuaternion::FromEulerYPRNeg(-yprRot.value);
+			pieceSpaceTransform = Transform{ rq.Rotate(origBakedQuat.value.Rotate(pos)) };
+
+		}, EntityExclude<BlockScriptAnims>);
+	}
+	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-2)");
+		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
+		LocalModelPieceEntity::ForEachView<Dirty, const HierarchyLevel>([](auto&& entityRef, auto&& dirty, auto&& hl) {
+
+			if (!dirty)
+				return;
+
+			dirty = false;
+			allDirtyEntities.emplace_back(std::make_pair(entityRef, hl.value));
+
+		}, EntityExclude<BlockScriptAnims>);
+
+		std::sort(allDirtyEntities.begin(), allDirtyEntities.end(), [](auto&& lhs, auto&& rhs) {
+			return std::forward_as_tuple(lhs.second, lhs.first.EntityID()) < std::forward_as_tuple(rhs.second, rhs.first.EntityID());
+		});
+
+		for (auto& [cer, hl] : allDirtyEntities) {
+			const auto& pieceSpaceTra = cer.Get<const PieceSpaceTransform>();
+			auto& modelSpaceTra = cer.Get<CurrModelSpaceTransform>();
+			const auto per = LocalModelPieceEntityRef(cer.Get<const ParentRelationship>().parent);
+
+			if unlikely(hl == 0) {
+				modelSpaceTra = pieceSpaceTra;
+			}
+			else {
+				const auto& pModelSpaceTra = per.Get<CurrModelSpaceTransform>();
+				modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
+			}
+		}
+
+		allDirtyEntities.clear();
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-3)");
 		// send AnimFinished calls and pop up done animations
 		const auto FinalizeAnimation = [this](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;

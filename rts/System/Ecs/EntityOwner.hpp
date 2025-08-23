@@ -67,7 +67,13 @@ namespace ECS {
 		template<typename... T>
 		[[nodiscard]] inline decltype(auto) Get() const {
 			assert(registry.all_of<T...>(entity));
-			return std::as_const(registry).get<T...>(entity);
+			return std::as_const(registry).get<spring::add_const_if_not<T>...>(entity);
+		}
+
+		template<typename... T>
+		[[nodiscard]] inline decltype(auto) GetMutable() const {
+			assert(registry.all_of<T...>(entity));
+			return registry.get<T...>(entity);
 		}
 
 		template<typename T, typename... Args>
@@ -112,6 +118,11 @@ namespace ECS {
 			registry.remove<T...>(entity);
 		}
 
+		template<typename... T>
+		inline void SafeRemove() {
+			registry.all_of<T...>(entity) && registry.remove<T...>(entity);
+		}
+
 		[[nodiscard]] auto EntityID() const { return entity; }
 
 		template<typename... T>
@@ -123,7 +134,7 @@ namespace ECS {
 		inline static void ForEachView(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.view<Components...>(excl);
 			for (auto entity : entities) {
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<Components...>));
 			}
 		}
 
@@ -133,7 +144,7 @@ namespace ECS {
 			return ThreadPool::Enqueue([excl, func]() {
 				auto entities = registry.view<Components...>(excl);
 				for (auto entity : entities) {
-					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
+					std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<Components...>));
 				}
 			});
 		}
@@ -143,15 +154,17 @@ namespace ECS {
 			auto entities = registry.view<Components...>(excl);
 
 			// entities doesn't allow for random access, so we need to copy them to a vector first
-			static std::vector<EntityType> entitiesVec;
-			entitiesVec.clear();
 			entitiesVec.reserve(entities.size_hint());
-			for (auto entity : entities) { entitiesVec.emplace_back(entity); }
+			for (auto entity : entities) {
+				entitiesVec.emplace_back(entity);
+			}
 
 			for_mt_chunk(0, entitiesVec.size(), [&entities, &func](int i) {
 				const auto entity = entitiesVec[i];
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<Components...>));
-			});
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<Components...>));
+			}, ParallelMinChunk, ParallelMaxChunk);
+
+			entitiesVec.clear();
 		}
 
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
@@ -159,14 +172,14 @@ namespace ECS {
 			spring::type_list_t<OwnedComponents...> owned;
 			auto entities = registry.group<OwnedComponents...>(obsv, excl);
 			for (auto entity : entities) {
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
 			}
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
 		inline static void ForEachGroup(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(excl);
 			for (auto entity : entities) {
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 			}
 		}
 
@@ -176,7 +189,7 @@ namespace ECS {
 			return ThreadPool::Enqueue([obsv, excl, func]() {
 				auto entities = registry.group<OwnedComponents...>(obsv, excl);
 				for (auto entity : entities) {
-					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
+					std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
 				}
 			});
 		}
@@ -186,7 +199,7 @@ namespace ECS {
 			return ThreadPool::Enqueue([excl, func]() {
 				auto entities = registry.group<OwnedComponents...>(excl);
 				for (auto entity : entities) {
-					std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
+					std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 				}
 			});
 		}
@@ -194,22 +207,41 @@ namespace ECS {
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
 		inline static void ForEachGroupParallel(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(obsv, excl);
+
+			// entities doesn't allow for random access, so we need to copy them to a vector first
+			entitiesVec.reserve(entities.size_hint());
+			for (auto entity : entities) {
+				entitiesVec.emplace_back(entity);
+			}
+
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
-			});
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
+			}, ParallelMinChunk, ParallelMaxChunk);
+
+			entitiesVec.clear();
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
 		inline static void ForEachGroupParallel(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(excl);
+
+			// entities doesn't allow for random access, so we need to copy them to a vector first
+			entitiesVec.reserve(entities.size_hint());
+			for (auto entity : entities) {
+				entitiesVec.emplace_back(entity);
+			}
+
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
-				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
-			});
+				std::apply(std::forward<Func>(func), make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
+			}, ParallelMinChunk, ParallelMaxChunk);
+
+			entitiesVec.clear();
 		}
 
 		inline static void Cleanup() {
 			registry = {};
+			entitiesVec = {};
 		}
 	private:
 		template<typename U>
@@ -241,9 +273,18 @@ namespace ECS {
 			);
 		}
 
+		inline static void SetParallelNumberOfChunks(int minChunks = ENTT_PACKED_PAGE, int maxChunks = std::numeric_limits<int>::max()) {
+			ParallelMinChunk = minChunks;
+			ParallelMaxChunk = maxChunks;
+		}
+
+		inline static auto RegistrySize() { return registry.size(); }
 	protected:
 		EntityType entity{ NullEntity };
 		static inline entt::registry registry{};
+		static inline std::vector<EntityType> entitiesVec; // for parallel loops
+		static inline int ParallelMinChunk = ENTT_PACKED_PAGE;
+		static inline int ParallelMaxChunk = std::numeric_limits<int>::max();
 	};
 
 	// non-owning class for an entity

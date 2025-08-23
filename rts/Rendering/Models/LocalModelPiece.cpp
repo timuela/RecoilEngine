@@ -8,9 +8,6 @@
 
 CR_BIND(LocalModelPiece, )
 CR_REG_METADATA(LocalModelPiece, (
-	CR_MEMBER(prevModelSpaceTra),
-	//CR_MEMBER(pos),
-	//CR_MEMBER(rot),
 	CR_MEMBER(dir),
 	CR_MEMBER(colvol),
 	CR_MEMBER(scriptSetVisible),
@@ -24,8 +21,6 @@ CR_REG_METADATA(LocalModelPiece, (
 	CR_IGNORED(original),
 
 	CR_MEMBER(wasUpdated),
-	CR_MEMBER(modelSpaceTra),
-	CR_MEMBER(pieceSpaceTra),
 	CR_MEMBER(modelSpaceMat),
 
 	CR_IGNORED(lodDispLists) //FIXME GL idx!
@@ -59,10 +54,13 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 		Dirty
 	>();
 
+	lmpe.Add<OriginalBakedRotation>(piece->bakedTransform.r);
+	lmpe.Add<HierarchyLevel>(piece->hierarchyLevel);
+
 	dir = piece->GetEmitDir();
 
-	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
-	prevModelSpaceTra = Transform{ };
+	lmpe.Add<PieceSpaceTransform>(CalcPieceSpaceTransform(pos, rot, piece->scale));
+	lmpe.Add<CurrModelSpaceTransform, PrevModelSpaceTransform>();
 
 	children.reserve(piece->children.size());
 }
@@ -75,6 +73,11 @@ void LocalModelPiece::AddChild(LocalModelPiece* c)
 	auto& cr = c->GetLocalModelPieceEntity().Get<ParentRelationship>();
 	cr.parent = lmpe.EntityID();
 
+
+	auto& chl = c->GetLocalModelPieceEntity().Get<HierarchyLevel>();
+	const auto& phl = lmpe.Get<const HierarchyLevel>();
+	chl = phl + 1;
+
 	c->parent = this;
 	children.push_back(c);
 }
@@ -85,8 +88,9 @@ void LocalModelPiece::RemoveChild(LocalModelPiece* c)
 
 	using namespace LMP;
 	auto& cr = c->GetLocalModelPieceEntity().Get<ParentRelationship>();
-	cr.parent = ECS::NullEntity;
+	auto& chl = c->GetLocalModelPieceEntity().Set<HierarchyLevel>(0);
 
+	cr.parent = ECS::NullEntity;
 	c->parent = nullptr;
 
 	children.erase(std::find(children.begin(), children.end(), c));
@@ -99,7 +103,7 @@ void LocalModelPiece::SetDirty(bool state) const {
 	using namespace LMP;
 
 	// hack to override the constness
-	auto& dirty = const_cast<LocalModelPieceEntity*>(&lmpe)->Get<Dirty>();
+	auto& dirty = lmpe.GetMutable<Dirty>();
 	dirty = state;
 
 	for (LocalModelPiece* child: children) {
@@ -114,17 +118,17 @@ bool LocalModelPiece::GetDirty() const
 {
 	using namespace LMP;
 
-	return lmpe.Get<Dirty>();
+	return lmpe.Get<const Dirty>();
 }
 
 const float3& LocalModelPiece::GetPosition() const {
 	using namespace LMP;
-	return lmpe.Get<Position>();
+	return lmpe.Get<const Position>();
 }
 
 const float3& LocalModelPiece::GetRotation() const {
 	using namespace LMP;
-	return lmpe.Get<Rotation>();
+	return lmpe.Get<const Rotation>();
 }
 
 void LocalModelPiece::SetPosition(const float3& p, int onAxis) {
@@ -134,7 +138,7 @@ void LocalModelPiece::SetPosition(const float3& p, int onAxis) {
 
 	using namespace LMP;
 	auto& pos = lmpe.Get<Position>();
-	if (!GetDirty() && !p[onAxis] == pos.value[onAxis]) {
+	if (!GetDirty() && !(p[onAxis] == pos.value[onAxis])) {
 		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
@@ -150,7 +154,7 @@ void LocalModelPiece::SetRotation(const float3& r, int onAxis) {
 
 	using namespace LMP;
 	auto& rot = lmpe.Get<Rotation>();
-	if (!GetDirty() && !r[onAxis] == rot.value[onAxis]) {
+	if (!GetDirty() && !(r[onAxis] == rot.value[onAxis])) {
 		SetDirty(true);
 		assert(localModel);
 		localModel->SetBoundariesNeedsRecalc();
@@ -211,7 +215,7 @@ void LocalModelPiece::ResetWasUpdated() const
 	// use this call to also reset noInterpolation
 	using namespace LMP;
 	// hack to override the constness
-	auto [pni, rni, sni] = const_cast<LocalModelPieceEntity*>(&lmpe)->Get<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
+	auto [pni, rni, sni] = lmpe.GetMutable<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
 	pni = false;
 	rni = false;
 	sni = false;
@@ -229,7 +233,7 @@ bool LocalModelPiece::SetPieceSpaceMatrix(const CMatrix44f& mat)
 	if (!goodMatrixProvided)
 		return false;
 
-	pieceSpaceTra = Transform::FromMatrix(mat);
+	lmpe.Set<PieceSpaceTransform>(Transform::FromMatrix(mat));
 
 	// neither of these are used outside of animation scripts, and
 	// GetEulerAngles wants a matrix created by PYR rotation while
@@ -244,7 +248,8 @@ const Transform& LocalModelPiece::GetModelSpaceTransform() const
 	if (GetDirty())
 		UpdateParentMatricesRec();
 
-	return modelSpaceTra;
+	using namespace LMP;
+	return lmpe.Get<const CurrModelSpaceTransform>();
 }
 
 const CMatrix44f& LocalModelPiece::GetModelSpaceMatrix() const
@@ -263,47 +268,59 @@ void LocalModelPiece::SetScriptVisible(bool b)
 
 void LocalModelPiece::SavePrevModelSpaceTransform()
 {
-	prevModelSpaceTra = GetModelSpaceTransform();
+	using namespace LMP;
+	lmpe.Set<PrevModelSpaceTransform>(GetModelSpaceTransform());
 }
 
 Transform LocalModelPiece::GetEffectivePrevModelSpaceTransform() const
 {
 	using namespace LMP;
 
-	const auto [pni, rni, sni] = lmpe.Get<const PositionNoInterpolation, const RotationNoInterpolation, const ScalingNoInterpolation>();
+	const auto [pni, rni, sni, prevModelSpaceTra] = lmpe.Get<const PositionNoInterpolation, const RotationNoInterpolation, const ScalingNoInterpolation, const PrevModelSpaceTransform>();
 
 	if (!pni && !rni && !sni)
 		return prevModelSpaceTra;
 
 	const auto& lmpTransform = GetModelSpaceTransform();
 	return Transform {
-		rni ? lmpTransform.r : prevModelSpaceTra.r,
-		pni ? lmpTransform.t : prevModelSpaceTra.t,
-		sni ? lmpTransform.s : prevModelSpaceTra.s
+		rni ? lmpTransform.r : prevModelSpaceTra.value.r,
+		pni ? lmpTransform.t : prevModelSpaceTra.value.t,
+		sni ? lmpTransform.s : prevModelSpaceTra.value.s
 	};
 }
 
 void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 {
 	RECOIL_DETAILED_TRACY_ZONE;
+	using namespace LMP;
+
+	auto& pieceSpaceTra = lmpe.GetMutable<PieceSpaceTransform>();
 
 	if (GetDirty()) {
 		SetDirty(false);
 		wasUpdated[0] = true;  //update for current frame
 		updateChildTransform = true;
 
-		using namespace LMP;
 		auto [pos, rot] = lmpe.Get<Position, Rotation>();
 		pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 	}
 
 	if (updateChildTransform) {
-		if (parent != nullptr)
-			modelSpaceTra = parent->modelSpaceTra * pieceSpaceTra;
-		else
-			modelSpaceTra = pieceSpaceTra;
+		auto [modelSpaceTra, rel] = lmpe.GetMutable<
+			CurrModelSpaceTransform,
+			const ParentRelationship
+		>();
 
-		modelSpaceMat = modelSpaceTra.ToMatrix();
+		if (rel.parent != ECS::NullEntity) {
+			const LocalModelPieceEntityRef pLmpe(rel.parent);
+			const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
+			modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
+		}
+		else {
+			modelSpaceTra = pieceSpaceTra;
+		}
+
+		modelSpaceMat = modelSpaceTra.value.ToMatrix();
 	}
 
 	for (auto& child : children) {
@@ -321,28 +338,35 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	wasUpdated[0] = true;  //update for current frame
 
 	using namespace LMP;
-	auto [pos, rot] = lmpe.Get<Position, Rotation>();
+	auto [pos, rot, modelSpaceTra, pieceSpaceTra, rel] = lmpe.GetMutable<
+		const Position,
+		const Rotation,
+		CurrModelSpaceTransform,
+		PieceSpaceTransform,
+		const ParentRelationship
+	>();
+
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 
-	if (parent != nullptr)
-		modelSpaceTra = parent->modelSpaceTra * pieceSpaceTra;
-	else
+	if (rel.parent != ECS::NullEntity) {
+		LocalModelPieceEntityRef pLmpe(rel.parent);
+		const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
+		modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
+	}
+	else {
 		modelSpaceTra = pieceSpaceTra;
+	}
 
-	modelSpaceMat = modelSpaceTra.ToMatrix();
-}
-
-Transform LocalModelPiece::CalcPieceSpaceTransformOrig(const float3& p, const float3& r, float s) const
-{
-	return original->ComposeTransform(p, r, s);
+	modelSpaceMat = modelSpaceTra.value.ToMatrix();
 }
 
 Transform LocalModelPiece::CalcPieceSpaceTransform(const float3& p, const float3& r, float s) const
 {
+	using namespace LMP;
 	if (GetBlockScriptAnims())
-		return pieceSpaceTra;
+		return lmpe.Get<const PieceSpaceTransform>();
 
-	return CalcPieceSpaceTransformOrig(p, r, s);
+	return original->ComposeTransform(p, r, s);
 }
 
 

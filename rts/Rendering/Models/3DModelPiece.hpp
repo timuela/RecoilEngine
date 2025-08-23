@@ -44,7 +44,7 @@ struct S3DModelPiece {
 		indxStart = ~0u;
 		indxCount = ~0u;
 
-		hasBakedTra = false;
+		hierarchyLevel = 0u;
 	}
 
 	virtual float3 GetEmitPos() const;
@@ -59,8 +59,6 @@ struct S3DModelPiece {
 
 	void DrawElements(uint32_t prim = 0x0004/*GL_TRIANGLES*/) const;
 	static void DrawShatterElements(uint32_t vboIndxStart, uint32_t vboIndxCount, uint32_t prim = 0x0004/*GL_TRIANGLES*/);
-
-	bool HasBackedTra() const { return hasBakedTra; }
 public:
 	void DrawStaticLegacy(bool bind, bool bindPosMat) const;
 	void DrawStaticLegacyRec() const;
@@ -71,7 +69,6 @@ public:
 	void SetPieceTransform(const Transform& parentTra);
 	void SetBakedTransform(const Transform& tra) {
 		bakedTransform = tra;
-		hasBakedTra = !tra.IsIdentity();
 	}
 
 	Transform ComposeTransform(const float3& t, const float3& r, float s) const;
@@ -116,14 +113,14 @@ public:
 	uint32_t vertIndex = ~0u; // global vertex number offset
 	uint32_t indxStart = ~0u; // global Index VBO offset
 	uint32_t indxCount = ~0u;
+
+	size_t hierarchyLevel = 0u;
 protected:
 	std::vector<SVertexData> vertices;
 	std::vector<uint32_t> indices;
 	std::vector<uint32_t> shatterIndices;
 
 	S3DModel* model;
-
-	bool hasBakedTra;
 public:
 	friend class CAssParser;
 };
