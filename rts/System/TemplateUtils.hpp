@@ -83,6 +83,13 @@ namespace spring {
 		return make_index_dispatcher(std::make_index_sequence<N>{});
 	}
 
+	template <typename T>
+	using add_const_if_not = std::conditional_t<
+		std::is_const_v<T>,      // If T is already const,
+		T,                       // use T unchanged,
+		std::add_const_t<T>      // else add const
+	>;
+
 	template<typename T>
 	struct return_type { using type = T; };
 

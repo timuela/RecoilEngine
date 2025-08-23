@@ -49,7 +49,6 @@ struct LocalModelPiece
 	void UpdateChildTransformRec(bool updateChildMatrices) const;
 	void UpdateParentMatricesRec() const;
 
-	Transform CalcPieceSpaceTransformOrig(const float3& p, const float3& r, float s) const;
 	Transform CalcPieceSpaceTransform(const float3& p, const float3& r, float s) const;
 
 	// note: actually OBJECT_TO_WORLD but transform is the same
@@ -93,18 +92,10 @@ struct LocalModelPiece
 	const auto& GetLocalModelPieceEntity() const { return lmpe; }
 	      auto& GetLocalModelPieceEntity()       { return lmpe; }
 private:
-	Transform prevModelSpaceTra;
-
-	LocalModelPieceEntity lmpe; /*
-		Components:
-		* Position - translation relative to parent LMP, *INITIALLY* equal to original->offset
-		* Rotation - orientation relative to parent LMP, in radians (updated by scripts)
-	*/
+	LocalModelPieceEntity lmpe;
 
 	float3 dir;      // cached copy of original->GetEmitDir()
 
-	mutable Transform pieceSpaceTra;  // transform relative to parent LMP (SYNCED), combines <pos> and <rot>
-	mutable Transform modelSpaceTra;  // transform relative to root LMP (SYNCED), chained pieceSpaceMat's
 	mutable CMatrix44f modelSpaceMat; // same as above, except matrix
 
 	CollisionVolume colvol;
