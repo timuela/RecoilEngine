@@ -66,3 +66,5 @@ static constexpr auto AnimComponentList = spring::type_list<
 	AnimInfoMoveY,
 	AnimInfoMoveZ
 >;
+
+struct HasAnimation {};
