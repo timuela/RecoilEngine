@@ -67,4 +67,69 @@ static constexpr auto AnimComponentList = spring::type_list<
 	AnimInfoMoveZ
 >;
 
+struct SpinAnimation {
+	static constexpr auto animType = ASpin;
+
+	float3 src{};
+	float3 spd{};
+	float3 dst{}; // means final position when turning or moving, final speed when spinning
+	float3 acc{}; // used for spinning, can be negative
+
+	uint32_t hasX : 1;
+	uint32_t hasY : 1;
+	uint32_t hasZ : 1;
+
+	uint32_t doneX : 1;
+	uint32_t doneY : 1;
+	uint32_t doneZ : 1;
+
+	uint32_t hasWaitingX : 1;
+	uint32_t hasWaitingY : 1;
+	uint32_t hasWaitingZ : 1;
+
+	uint32_t blockScriptAnim : 1;
+	uint32_t noInterpolation : 1;
+	uint32_t dirty : 1;
+
+	uint32_t reserved : 4;
+
+	uint32_t pieceNum : 16;
+
+	uint32_t scriptId;
+};
+
+template<AnimTypeInt AT>
+struct MoveTurnAnimation {
+	static constexpr auto animType = AT;
+
+	float3 src{};
+	float3 spd{};
+	float3 dst{}; // means final position when turning or moving, final speed when spinning
+
+	uint32_t hasX : 1;
+	uint32_t hasY : 1;
+	uint32_t hasZ : 1;
+
+	uint32_t doneX : 1;
+	uint32_t doneY : 1;
+	uint32_t doneZ : 1;
+
+	uint32_t hasWaitingX : 1;
+	uint32_t hasWaitingY : 1;
+	uint32_t hasWaitingZ : 1;
+
+	uint32_t blockScriptAnim : 1;
+	uint32_t noInterpolation : 1;
+	uint32_t dirty : 1;
+
+	uint32_t reserved : 4;
+
+	uint32_t pieceNum : 16;
+
+	uint32_t scriptId;
+};
+
+using MoveAnimation = MoveTurnAnimation<AMove>;
+using TurnAnimation = MoveTurnAnimation<ATurn>;
+
 struct HasAnimation {};
