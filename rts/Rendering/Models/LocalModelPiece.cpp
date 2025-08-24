@@ -47,8 +47,7 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 
 	lmpe.Add<
 		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
-		WasUpdated,
-		Dirty
+		UpdateFlags
 	>();
 
 	lmpe.Add<OriginalBakedTransform>(piece->bakedTransform);
@@ -99,8 +98,8 @@ void LocalModelPiece::SetDirty(bool state) const {
 	using namespace LMP;
 
 	// hack to override the constness
-	auto& dirty = lmpe.GetMutable<Dirty>();
-	dirty = state;
+	auto& uf = lmpe.GetMutable<UpdateFlags>();
+	uf.dirty = state;
 
 	for (LocalModelPiece* child: children) {
 		if (child->GetDirty())
@@ -114,7 +113,7 @@ bool LocalModelPiece::GetDirty() const
 {
 	using namespace LMP;
 
-	return lmpe.Get<const Dirty>();
+	return lmpe.Get<const UpdateFlags>().dirty;
 }
 
 const float3& LocalModelPiece::GetPosition() const {
@@ -200,7 +199,7 @@ bool LocalModelPiece::GetWasUpdated() const
 {
 	using namespace LMP;
 
-	auto& wasUpdated = lmpe.Get<WasUpdated>();
+	auto& wasUpdated = lmpe.Get<UpdateFlags>();
 	return wasUpdated.forCurrFrame || wasUpdated.forPrevFrame;
 }
 
@@ -216,7 +215,7 @@ void LocalModelPiece::ResetWasUpdated() const
 	// happens, thus uploading prevModelSpaceTra in UpdateObjectTrasform() too
 	using namespace LMP;
 
-	auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+	auto& wasUpdated = lmpe.GetMutable<UpdateFlags>();
 	wasUpdated.forPrevFrame = std::exchange(wasUpdated.forCurrFrame, false);
 
 	// use this call to also reset noInterpolation
@@ -273,7 +272,7 @@ void LocalModelPiece::SetScriptVisible(bool b)
 
 	using namespace LMP;
 
-	auto& wasUpdated = lmpe.Get<WasUpdated>();
+	auto& wasUpdated = lmpe.Get<UpdateFlags>();
 	wasUpdated.forCurrFrame = true; //update for current frame
 }
 
@@ -309,7 +308,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 
 	if (GetDirty()) {
 		SetDirty(false);
-		auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+		auto& wasUpdated = lmpe.GetMutable<UpdateFlags>();
 		wasUpdated.forCurrFrame = true;  //update for current frame
 		updateChildTransform = true;
 
@@ -349,7 +348,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	SetDirty(false);
 	using namespace LMP;
 
-	auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+	auto& wasUpdated = lmpe.GetMutable<UpdateFlags>();
 	wasUpdated.forCurrFrame = true;  //update for current frame
 
 	auto [pos, rot, modelSpaceTra, pieceSpaceTra, rhl] = lmpe.GetMutable<
