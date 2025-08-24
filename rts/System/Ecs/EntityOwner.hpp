@@ -30,6 +30,9 @@ namespace ECS {
 	template <typename... T>
 	static constexpr ExcludedComponentsListT ExcludedComponentsList{};
 
+	template<typename... Ts>
+	concept MoreThanOneType = (sizeof...(Ts) > 1);
+
 
 	template <typename TypeTag>
 	class EntityBase {
@@ -52,9 +55,8 @@ namespace ECS {
 		}
 
 		template<typename... T>
-		inline decltype(auto) Add() {
+		inline decltype(auto) Add() requires MoreThanOneType<T...> {
 			assert(!registry.any_of<T...>(entity));
-			// alternatively can skip void types completely with forward_nonvoid_as_tuple(T...)?
 			return std::forward_as_tuple(emplace_helper<T>()...);
 		}
 
