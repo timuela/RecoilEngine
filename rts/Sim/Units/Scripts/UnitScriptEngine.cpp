@@ -391,26 +391,36 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
 		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
 
-		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedRotation, const Position, const Rotation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedQuat, auto&& pos, auto&& yprRot) {
+		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
 
 			if (!dirty)
 				return;
 
 			// Simplified copy of S3DModelPiece::ComposeTransform()
+#if 0
 			const auto rq = CQuaternion::FromEulerYPRNeg(-yprRot.value);
 			pieceSpaceTransform = Transform{ rq.Rotate(origBakedQuat.value.Rotate(pos)) };
+#else
+			// original copy
+			Transform tra;
+			tra.t = pos;
+			tra *= origBakedTra;
+			tra *= Transform(CQuaternion::FromEulerYPRNeg(-yprRot.value), ZeroVector, 1.0f);
+			pieceSpaceTransform = std::move(tra);
+#endif
 
 		}, EntityExclude<BlockScriptAnims>);
 	}
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-2)");
 		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
-		LocalModelPieceEntity::ForEachView<Dirty, const HierarchyLevel>([](auto&& entityRef, auto&& dirty, auto&& hl) {
+		LocalModelPieceEntity::ForEachView<Dirty, WasUpdated, const HierarchyLevel>([](auto&& entityRef, auto&& dirty, auto&& wasUpdated, auto&& hl) {
 
 			if (!dirty)
 				return;
 
 			dirty = false;
+			wasUpdated.forCurrFrame = true;  //update for current frame
 			allDirtyEntities.emplace_back(std::make_pair(entityRef, hl.value));
 
 		}, EntityExclude<BlockScriptAnims>);
