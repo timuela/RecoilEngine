@@ -37,16 +37,10 @@ namespace LMP {
 
 	ALIAS_COMPONENT_DEF(Dirty, bool, true);
 
-	ALIAS_COMPONENT_DEF(HierarchyLevel, size_t, 0);
-
 	struct ParentChildrenRelationship {
 		ECS::EntityType parent{ entt::null };
 		ECS::EntityType firstChild{ entt::null };
 		ECS::EntityType nextSibling{ entt::null };
-	};
-
-	struct ParentRelationship {
-		ECS::EntityType parent{ entt::null };
 	};
 
 	struct RelationshipHierarchy {

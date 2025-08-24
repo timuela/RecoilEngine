@@ -114,7 +114,7 @@ public:
 	uint32_t indxStart = ~0u; // global Index VBO offset
 	uint32_t indxCount = ~0u;
 
-	size_t hierarchyLevel = 0u;
+	uint32_t hierarchyLevel = 0u;
 protected:
 	std::vector<SVertexData> vertices;
 	std::vector<uint32_t> indices;

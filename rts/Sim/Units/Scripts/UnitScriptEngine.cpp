@@ -312,11 +312,11 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				if (dirty)
 					return;
 
-				auto& r = entityRef.template Get<ParentRelationship>();
-				if (r.parent == ECS::NullEntity)
+				const auto& rhl = entityRef.template Get<const RelationshipHierarchy>();
+				if (rhl.parent == ECS::NullEntity)
 					return;
 
-				const auto parLmpe = LocalModelPieceEntityRef(r.parent);
+				const auto parLmpe = LocalModelPieceEntityRef(rhl.parent);
 				const auto& dirtyParent = parLmpe.Get<const Dirty>();
 				if (dirtyParent) {
 					// if the parent is dirty, this instance is dirty too
@@ -330,7 +330,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
 		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
 
-		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
+		LocalModelPieceEntity::ForEachViewParallel<const Dirty, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
 			if (!dirty)
 				return;
 
@@ -354,13 +354,13 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-0)");
 
-		LocalModelPieceEntity::ForEachView<Dirty, WasUpdated, const HierarchyLevel, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& wasUpdated, auto&& hl) {
+		LocalModelPieceEntity::ForEachView<Dirty, WasUpdated, const RelationshipHierarchy, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& wasUpdated, auto&& rhl) {
 			if (!dirty)
 				return;
 
 			dirty = false;
 			wasUpdated.forCurrFrame = true;  //update for current frame
-			allDirtyEntities.emplace_back(std::make_pair(entityRef, hl.value));
+			allDirtyEntities.emplace_back(std::make_pair(entityRef, rhl.hierarchyLevel));
 
 		}, EntityExclude<BlockScriptAnims>);
 
@@ -376,7 +376,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		for (auto& [cer, hl] : allDirtyEntities) {
 			const auto& pieceSpaceTra = cer.Get<const PieceSpaceTransform>();
 			auto& modelSpaceTra = cer.Get<CurrModelSpaceTransform>();
-			const auto per = LocalModelPieceEntityRef(cer.Get<const ParentRelationship>().parent);
+			const auto per = LocalModelPieceEntityRef(cer.Get<const RelationshipHierarchy>().parent);
 
 			if unlikely(hl == 0) {
 				modelSpaceTra = pieceSpaceTra;
