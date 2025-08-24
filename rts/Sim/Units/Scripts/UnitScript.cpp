@@ -95,6 +95,22 @@ namespace Impl {
 #endif
 	}
 
+	void CondRemoveHasAnimation(LocalModelPieceEntity& lmpe) {
+		bool hasAnimation = false;
+		for (size_t animIndex = 0; animIndex < AnimAxisCount * AnimTypeCount; ++animIndex) {
+			spring::type_list_exec_at(animIndex, AnimComponentList, [&hasAnimation, &lmpe](auto&& t) {
+				using AnimInfoType = std::decay_t<decltype(t)>;
+				hasAnimation |= lmpe.Has<AnimInfoType>();
+			});
+
+			if (hasAnimation)
+				break;
+		}
+
+		if (!hasAnimation)
+			lmpe.Remove<HasAnimation>();
+	}
+
 	template<typename AnimInfoType>
 	void RemoveTypedAnim(CUnitScript& self, LocalModelPieceEntity& lmpe, AnimInfoType* ai, int piece) {
 		assert(ai);
@@ -112,6 +128,7 @@ namespace Impl {
 		}
 
 		lmpe.Remove<AnimInfoType>();
+		CondRemoveHasAnimation(lmpe);
 	}
 
 	template<typename AnimInfoType>
@@ -158,6 +175,8 @@ namespace Impl {
 		ai.speed = speed;
 		ai.accel = accel;
 		ai.done = false;
+
+		lmpe.GetOrAdd<HasAnimation>();
 	}
 
 	template<typename AnimInfoType>

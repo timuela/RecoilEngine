@@ -226,79 +226,18 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-0)");
-
-		const auto ExecuteAnimation = [tickRate](auto&& t) {
+		std::array<std::shared_future<void>, AnimAxisCount * AnimTypeCount> futures{};
+		const auto ExecuteAnimation = [tickRate, &futures](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
-/*
+
+			static constexpr auto AnimComponentListIndex = animType * AnimAxisCount + animAxis;
+
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
-					noInterpolate = false;
-
-					const auto curValue = rot.value[animAxis];
-					auto newValue = ClampRad(curValue);
-					ai.done |= Impl::TurnToward(newValue, ai.dest, ai.speed / tickRate);
-
-					if (curValue == newValue)
-						return;
-
-					rot.value[animAxis] = newValue;
-
-					// will do recursive propagation of dirty flag later
-					dirty = true;
-				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
-			}
-			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachGroup<Rotation, RotationNoInterpolation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
-					noInterpolate = false;
-
-					const auto curValue = rot.value[animAxis];
-					auto newValue = ClampRad(curValue);
-					ai.done |= Impl::DoSpin(newValue, ai.dest, ai.speed, ai.accel, tickRate);
-
-					if (curValue == newValue)
-						return;
-
-					rot.value[animAxis] = newValue;
-
-					// will do recursive propagation of dirty flag later
-					dirty = true;
-				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
-			}
-			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachGroup<Position, PositionNoInterpolation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
-					noInterpolate = false;
-
-					const auto curValue = pos.value[animAxis];
-					auto newValue = pos.value[animAxis];
-					ai.done |= Impl::MoveToward(newValue, ai.dest, ai.speed / tickRate);
-					pos.value[animAxis] = newValue;
-
-					if (curValue == newValue)
-						return;
-
-					pos.value[animAxis] = newValue;
-
-					// will do recursive propagation of dirty flag later
-					dirty = true;
-				}, EntityInclude<AnimInfoType, Dirty>, EntityExclude<BlockScriptAnims>);
-			}
-			else {
-				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
-			}
-*/
-			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation,AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
+				futures[AnimComponentListIndex] =
+				LocalModelPieceEntity::ForEachViewAsync<Rotation, RotationNoInterpolation,AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -315,9 +254,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
+				futures[AnimComponentListIndex] =
+				LocalModelPieceEntity::ForEachViewAsync<Rotation, RotationNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -334,9 +272,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachView<Position, PositionNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
-					using namespace LMP;
-
+				futures[AnimComponentListIndex] =
+				LocalModelPieceEntity::ForEachViewAsync<Position, PositionNoInterpolation, AnimInfoType, Dirty>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& dirty) {
 					noInterpolate = false;
 
 					const auto curValue = pos.value[animAxis];
@@ -359,6 +296,9 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
+
+		// futures will wait on destruction? Maybe redundant.
+		for (auto& fut : futures) { fut.get(); }
 	}
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-1)");
@@ -368,11 +308,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 		while (newDirtyFlags) {
 			newDirtyFlags = false;
-			LocalModelPieceEntity::ForEachView<Dirty>([&newDirtyFlags](auto&& entityRef, auto&& dirty) {
+			LocalModelPieceEntity::ForEachView<Dirty, HasAnimation>([&newDirtyFlags](auto&& entityRef, auto&& dirty) {
 				if (dirty)
 					return;
 
-				using namespace LMP;
 				auto& r = entityRef.template Get<ParentRelationship>();
 				if (r.parent == ECS::NullEntity)
 					return;
@@ -391,8 +330,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
 		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
 
-		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
-
+		LocalModelPieceEntity::ForEachViewParallel<const Dirty, const HierarchyLevel, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& hl, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
 			if (!dirty)
 				return;
 
@@ -411,11 +349,12 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 		}, EntityExclude<BlockScriptAnims>);
 	}
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST-2)");
-		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
-		LocalModelPieceEntity::ForEachView<Dirty, WasUpdated, const HierarchyLevel>([](auto&& entityRef, auto&& dirty, auto&& wasUpdated, auto&& hl) {
 
+	static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-0)");
+
+		LocalModelPieceEntity::ForEachView<Dirty, WasUpdated, const HierarchyLevel, HasAnimation>([](auto&& entityRef, auto&& dirty, auto&& wasUpdated, auto&& hl) {
 			if (!dirty)
 				return;
 
@@ -425,10 +364,15 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 		}, EntityExclude<BlockScriptAnims>);
 
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-1)");
 		std::sort(allDirtyEntities.begin(), allDirtyEntities.end(), [](auto&& lhs, auto&& rhs) {
 			return std::forward_as_tuple(lhs.second, lhs.first.EntityID()) < std::forward_as_tuple(rhs.second, rhs.first.EntityID());
 		});
-
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-2)");
 		for (auto& [cer, hl] : allDirtyEntities) {
 			const auto& pieceSpaceTra = cer.Get<const PieceSpaceTransform>();
 			auto& modelSpaceTra = cer.Get<CurrModelSpaceTransform>();
@@ -468,6 +412,23 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, FinalizeAnimation);
+
+		// remove HasAnimation
+		LocalModelPieceEntity::ForEachView<HasAnimation>([this](auto&& entityRef) {
+			bool hasAnimation = false;
+			for (size_t animIndex = 0; animIndex < AnimAxisCount * AnimTypeCount; ++animIndex) {
+				spring::type_list_exec_at(animIndex, AnimComponentList, [&hasAnimation, &entityRef](auto&& t) {
+					using AnimInfoType = std::decay_t<decltype(t)>;
+					hasAnimation |= entityRef.template Has<AnimInfoType>();
+				});
+
+				if (hasAnimation)
+					break;
+			}
+
+			if (!hasAnimation)
+				entityRef.template Remove<HasAnimation>();
+		});
 	}
 
 	cobEngine->RunDeferredCallins();
