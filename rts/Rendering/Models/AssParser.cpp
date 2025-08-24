@@ -149,12 +149,9 @@ struct SPseudoAssPiece {
 	float3 offset;     /// local (piece-space) offset wrt. parent piece
 	float scale{1.0f}; /// baked uniform scaling factor (assimp-only)
 
-	bool hasBakedTra;
-
 	// copy of S3DModelPiece::SetBakedTransform()
 	void SetBakedTransform(const Transform& tra) {
 		bakedTransform = tra;
-		hasBakedTra = !tra.IsIdentity();
 	}
 
 	// copy of S3DModelPiece::ComposeTransform(), unused?
@@ -1176,8 +1173,7 @@ Transform SPseudoAssPiece::ComposeTransform(const float3& t, const float3& r, fl
 	Transform tra;
 	tra.t = t;
 
-	if (hasBakedTra)
-		tra *= bakedTransform;
+	tra *= bakedTransform;
 
 	tra *= Transform(CQuaternion::FromEulerYPRNeg(-r), ZeroVector, s);
 	return tra;

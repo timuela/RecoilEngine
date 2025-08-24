@@ -27,7 +27,6 @@ struct LocalModelPiece
 	CR_DECLARE_STRUCT(LocalModelPiece)
 
 	LocalModelPiece()
-		: wasUpdated{ true }
 	{}
 	LocalModelPiece(const S3DModelPiece* piece);
 
@@ -68,7 +67,7 @@ struct LocalModelPiece
 	void SetBlockScriptAnims(bool b);
 	bool GetBlockScriptAnims() const;
 
-	auto GetWasUpdated() const { return wasUpdated[0] || wasUpdated[1]; }
+	bool GetWasUpdated() const;
 	void ResetWasUpdated() const; /*fake*/
 
 	bool SetPieceSpaceMatrix(const CMatrix44f& mat);
@@ -100,7 +99,6 @@ private:
 
 	CollisionVolume colvol;
 
-	mutable std::array<bool, 2> wasUpdated; // currFrame, prevFrame
 	bool scriptSetVisible; // TODO: add (visibility) maxradius!
 public:
 	uint32_t lmodelPieceIndex; // index of this piece into LocalModel::pieces

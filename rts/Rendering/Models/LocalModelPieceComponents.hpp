@@ -28,7 +28,7 @@ namespace LMP {
 	// ModelSpaceTransform, but from the previous frame (SYNCED)
 	ALIAS_COMPONENT(PrevModelSpaceTransform, Transform);
 
-	ALIAS_COMPONENT(OriginalBakedRotation, CQuaternion);
+	ALIAS_COMPONENT(OriginalBakedTransform, Transform);
 
 	ALIAS_COMPONENT_DEF(PositionNoInterpolation, bool, false);
 	ALIAS_COMPONENT_DEF(RotationNoInterpolation, bool, false);
@@ -46,6 +46,11 @@ namespace LMP {
 
 	struct ParentRelationship {
 		ECS::EntityType parent{ entt::null };
+	};
+
+	struct WasUpdated {
+		bool forCurrFrame = true;
+		bool forPrevFrame = true;
 	};
 
 	struct BlockScriptAnims {};

@@ -20,7 +20,6 @@ CR_REG_METADATA(LocalModelPiece, (
 	// reload
 	CR_IGNORED(original),
 
-	CR_MEMBER(wasUpdated),
 	CR_MEMBER(modelSpaceMat),
 
 	CR_IGNORED(lodDispLists) //FIXME GL idx!
@@ -32,8 +31,6 @@ CR_REG_METADATA(LocalModelPiece, (
 
 LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	: colvol(piece->GetCollisionVolume())
-	, wasUpdated{ true }
-
 	, scriptSetVisible(true)
 
 	, lmodelPieceIndex(-1)
@@ -51,10 +48,11 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	lmpe.Add<
 		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
 		ParentRelationship,
+		WasUpdated,
 		Dirty
 	>();
 
-	lmpe.Add<OriginalBakedRotation>(piece->bakedTransform.r);
+	lmpe.Add<OriginalBakedTransform>(piece->bakedTransform);
 	lmpe.Add<HierarchyLevel>(piece->hierarchyLevel);
 
 	dir = piece->GetEmitDir();
@@ -200,6 +198,14 @@ bool LocalModelPiece::GetBlockScriptAnims() const
 	return lmpe.Has<BlockScriptAnims>();
 }
 
+bool LocalModelPiece::GetWasUpdated() const
+{
+	using namespace LMP;
+
+	auto& wasUpdated = lmpe.Get<WasUpdated>();
+	return wasUpdated.forCurrFrame || wasUpdated.forPrevFrame;
+}
+
 void LocalModelPiece::ResetWasUpdated() const
 {
 	// wasUpdated needs to trigger twice because otherwise
@@ -210,10 +216,13 @@ void LocalModelPiece::ResetWasUpdated() const
 	// By passing values from right to left we make sure to trigger
 	// wasUpdated[0] || wasUpdated[1] at least twice after such situation
 	// happens, thus uploading prevModelSpaceTra in UpdateObjectTrasform() too
-	wasUpdated[1] = std::exchange(wasUpdated[0], false);
+	using namespace LMP;
+
+	auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+	wasUpdated.forPrevFrame = std::exchange(wasUpdated.forCurrFrame, false);
 
 	// use this call to also reset noInterpolation
-	using namespace LMP;
+
 	// hack to override the constness
 	auto [pni, rni, sni] = lmpe.GetMutable<PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation>();
 	pni = false;
@@ -263,7 +272,11 @@ const CMatrix44f& LocalModelPiece::GetModelSpaceMatrix() const
 void LocalModelPiece::SetScriptVisible(bool b)
 {
 	scriptSetVisible = b;
-	wasUpdated[0] = true; //update for current frame
+
+	using namespace LMP;
+
+	auto& wasUpdated = lmpe.Get<WasUpdated>();
+	wasUpdated.forCurrFrame = true; //update for current frame
 }
 
 void LocalModelPiece::SavePrevModelSpaceTransform()
@@ -298,7 +311,8 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 
 	if (GetDirty()) {
 		SetDirty(false);
-		wasUpdated[0] = true;  //update for current frame
+		auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+		wasUpdated.forCurrFrame = true;  //update for current frame
 		updateChildTransform = true;
 
 		auto [pos, rot] = lmpe.Get<Position, Rotation>();
@@ -335,9 +349,11 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 		parent->UpdateParentMatricesRec();
 
 	SetDirty(false);
-	wasUpdated[0] = true;  //update for current frame
-
 	using namespace LMP;
+
+	auto& wasUpdated = lmpe.GetMutable<WasUpdated>();
+	wasUpdated.forCurrFrame = true;  //update for current frame
+
 	auto [pos, rot, modelSpaceTra, pieceSpaceTra, rel] = lmpe.GetMutable<
 		const Position,
 		const Rotation,
