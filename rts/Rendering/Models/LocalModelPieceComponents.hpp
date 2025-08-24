@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <bitset>
 #include <functional>
 #include "System/float3.h"
 #include "System/Transform.hpp"
@@ -48,10 +49,66 @@ namespace LMP {
 		ECS::EntityType parent{ entt::null };
 	};
 
+	struct RelationshipHierarchy {
+		ECS::EntityType parent{ entt::null };
+		uint32_t hierarchyLevel{ 0 };
+	};
+
 	struct WasUpdated {
 		bool forCurrFrame = true;
 		bool forPrevFrame = true;
 	};
 
 	struct BlockScriptAnims {};
+
+	struct MoveTurnAnimation {
+		float3 src{};
+		float3 spd{};
+		float3 dst{}; // means final position when turning or moving, final speed when spinning
+		float3 acc{}; // used for spinning, can be negative
+
+		uint32_t doneX : 1;
+		uint32_t doneY : 1;
+		uint32_t doneZ : 1;
+
+		uint32_t hasWaitingX : 1;
+		uint32_t hasWaitingY : 1;
+		uint32_t hasWaitingZ : 1;
+
+		uint32_t blockScriptAnim : 1;
+		uint32_t noInterpolation : 1;
+		uint32_t dirty : 1;
+
+		uint32_t scriptId : 23;
+	};
+
+	struct SpinAnimation {
+		float3 src{};
+		float3 spd{};
+		float3 dst{}; // means final position when turning or moving, final speed when spinning
+
+		uint32_t doneX : 1;
+		uint32_t doneY : 1;
+		uint32_t doneZ : 1;
+
+		uint32_t hasWaitingX : 1;
+		uint32_t hasWaitingY : 1;
+		uint32_t hasWaitingZ : 1;
+
+		uint32_t blockScriptAnim : 1;
+		uint32_t noInterpolation : 1;
+		uint32_t dirty : 1;
+
+		uint32_t scriptId : 23;
+	};
+
+	struct CurrTransforms {
+		Transform pieceSpaceTransform;
+		Transform currModelSpaceTransform;
+	};
+
+	struct AuxTransforms {
+		Transform origBakedTransform;
+		Transform prevModelSpaceTransform;
+	};
 }
