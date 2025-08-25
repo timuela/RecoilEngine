@@ -42,7 +42,6 @@
 #include "Sim/Misc/CollisionVolume.h"
 #include "Sim/Misc/LosHandler.h"
 #include "Sim/Misc/QuadField.h"
-#include "Sim/Misc/ExtractorHandler.h"
 #include "Sim/Misc/TeamHandler.h"
 #include "Sim/Misc/Wind.h"
 #include "Sim/Misc/ModInfo.h"
@@ -330,8 +329,6 @@ void CUnit::PreInit(const UnitLoadParams& params)
 		deathExpDamages = DynDamageArray::IncRef(&unitDef->deathExpWeaponDef->damages);
 
 	commandAI = CUnitLoader::NewCommandAI(this, unitDef);
-
-	extractorHandler.UnitPreInit(this, params);
 }
 
 
@@ -414,8 +411,6 @@ void CUnit::PostLoad()
 	RECOIL_DETAILED_TRACY_ZONE;
 	eventHandler.RenderUnitPreCreated(this);
 	eventHandler.RenderUnitCreated(this, isCloaked);
-
-	extractorHandler.UnitPostLoad(this);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -1969,7 +1964,10 @@ void CUnit::TurnIntoNanoframe()
 	SetStorage(0.0f);
 
 	// make sure neighbor extractors update
-	extractorHandler.UnitReverseBuilt(this);
+	const auto extractor = dynamic_cast <CExtractorBuilding*> (this);
+	if (extractor != nullptr)
+		extractor->ResetExtraction();
+
 	eventHandler.UnitReverseBuilt(this);
 }
 
@@ -2388,7 +2386,6 @@ void CUnit::Activate()
 
 	if (IsInLosForAllyTeam(gu->myAllyTeam))
 		Channels::General->PlayRandomSample(unitDef->sounds.activate, this);
-	extractorHandler.UnitActivated(this, true);
 }
 
 
@@ -2406,7 +2403,6 @@ void CUnit::Deactivate()
 
 	if (IsInLosForAllyTeam(gu->myAllyTeam))
 		Channels::General->PlayRandomSample(unitDef->sounds.deactivate, this);
-	extractorHandler.UnitActivated(this, false);
 }
 
 
