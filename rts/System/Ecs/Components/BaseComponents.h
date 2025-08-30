@@ -33,6 +33,11 @@ concept HasSameValueType = requires {
     typename U::ValueType;
 } && std::same_as<std::decay_t<typename T::ValueType>, std::decay_t<typename U::ValueType>>;
 
+template <typename A, typename T>
+concept ValueTypeMatchesComponent = requires {
+    typename A::ValueType;
+} && std::same_as<std::decay_t<typename A::ValueType>, std::decay_t<T>>;
+
 template<typename T>
 concept IsComposedComponent =
     std::derived_from<T, BasicClassComponentType<typename T::ValueType>> ||
@@ -104,8 +109,22 @@ struct Component : public BasicClassComponentType<T> { \
 #define VOID_COMPONENT(Component) struct Component {}
 
 // T = A<T> * B<T>
-template<typename U, typename T> auto operator*(const T& t, const U& u)
-    requires IsComposedComponent<T> && HasSameValueType<T, U>
+template<typename A, typename B> auto operator*(const A& t, const B& u)
+    requires IsComposedComponent<A> && HasSameValueType<A, B>
 {
     return t.value * u.value;
+}
+
+// T = T * B<T>
+template<typename T, typename B> auto operator*(const T& t, const B& b)
+    requires IsComposedComponent<B> && ValueTypeMatchesComponent<B, T>
+{
+    return t * b.value;
+}
+
+// T = A<T> * T
+template<typename A, typename T> auto operator*(const A& a, const T& t)
+    requires IsComposedComponent<A> && ValueTypeMatchesComponent<A, T>
+{
+    return a.value * t;
 }

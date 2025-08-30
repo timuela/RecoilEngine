@@ -117,7 +117,6 @@ void S3DModel::FlattenPieceTree(S3DModelPiece* root)
 		// add children in reverse for the correct DF traversal order
 		for (size_t n = 0; n < p->children.size(); n++) {
 			auto* child = p->children[p->children.size() - n - 1];
-			child->hierarchyLevel = p->hierarchyLevel + 1;
 			stack.push_back(child);
 		}
 	}

@@ -141,7 +141,7 @@ namespace ECS {
 		}
 
 		template<typename... Components, typename... ExcludedComponents, typename Func>
-		inline static auto ForEachViewAsync(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		[[nodiscard]] inline static auto ForEachViewAsync(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
 			return ThreadPool::Enqueue([excl, func]() {
 				auto entities = registry.view<Components...>(excl);
@@ -186,7 +186,7 @@ namespace ECS {
 		}
 
 		template<typename... OwnedComponents, typename... ObservedComponents, typename... ExcludedComponents, typename Func>
-		inline static auto ForEachGroupAsync(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
+		[[nodiscard]] inline static auto ForEachGroupAsync(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
 			return ThreadPool::Enqueue([obsv, excl, func]() {
 				auto entities = registry.group<OwnedComponents...>(obsv, excl);
@@ -241,6 +241,11 @@ namespace ECS {
 			entitiesVec.clear();
 		}
 
+		inline static void SetParallelNumberOfChunks(int minChunks = ENTT_PACKED_PAGE, int maxChunks = std::numeric_limits<int>::max()) {
+			ParallelMinChunk = minChunks;
+			ParallelMaxChunk = maxChunks;
+		}
+
 		inline static void Cleanup() {
 			registry = {};
 			entitiesVec = {};
@@ -275,11 +280,6 @@ namespace ECS {
 			);
 		}
 
-		inline static void SetParallelNumberOfChunks(int minChunks = ENTT_PACKED_PAGE, int maxChunks = std::numeric_limits<int>::max()) {
-			ParallelMinChunk = minChunks;
-			ParallelMaxChunk = maxChunks;
-		}
-
 		inline static auto RegistrySize() { return registry.size(); }
 	protected:
 		EntityType entity{ NullEntity };
@@ -299,7 +299,7 @@ namespace ECS {
 		{
 			this->entity = entityOwner.Entity();
 		}
-		explicit EntityReference(const EntityType ownedEntity)
+		explicit EntityReference(const EntityType ownedEntity = NullEntity)
 			: EB()
 		{
 			this->entity = ownedEntity;

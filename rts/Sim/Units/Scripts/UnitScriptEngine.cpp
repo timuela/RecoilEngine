@@ -217,6 +217,7 @@ namespace Impl{
 void CUnitScriptEngine::Tick(int deltaTime)
 {
 	SCOPED_TIMER("CUnitScriptEngine::Tick");
+
 	const int tickRate = 1000 / deltaTime;
 
 	cobEngine->Tick(deltaTime);
@@ -225,19 +226,18 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	using namespace ECS;
 
 	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST-0)");
-		std::array<std::shared_future<void>, AnimAxisCount * AnimTypeCount> futures{};
-		const auto ExecuteAnimation = [tickRate, &futures](auto&& t) {
+		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
+
+		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
 			static constexpr auto animType = AnimInfoType::animType;
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
 			static constexpr auto AnimComponentListIndex = animType * AnimAxisCount + animAxis;
-
+			LocalModelPieceEntity::SetParallelNumberOfChunks(128); // tune this
 			if constexpr (animType == ATurn) {
-				futures[AnimComponentListIndex] =
-				LocalModelPieceEntity::ForEachViewAsync<Rotation, RotationNoInterpolation,AnimInfoType, UpdateFlags>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -249,13 +249,12 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					rot.value[animAxis] = newValue;
 
-					// will do recursive propagation of dirty flag later
-					uf.dirty = true;
+					// will do recursive propagation later
+					df = true;
 				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				futures[AnimComponentListIndex] =
-				LocalModelPieceEntity::ForEachViewAsync<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -267,13 +266,12 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					rot.value[animAxis] = newValue;
 
-					// will do recursive propagation of dirty flag later
-					uf.dirty = true;
+					// will do recursive propagation later
+					df = true;
 				}, EntityExclude<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				futures[AnimComponentListIndex] =
-				LocalModelPieceEntity::ForEachViewAsync<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf) {
+				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = pos.value[animAxis];
@@ -286,8 +284,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					pos.value[animAxis] = newValue;
 
-					// will do recursive propagation of dirty flag later
-					uf.dirty = true;
+					// will do recursive propagation later
+					df = true;
 				}, EntityExclude<BlockScriptAnims>);
 			}
 			else {
@@ -296,99 +294,107 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
-
-		// futures will wait on destruction? Maybe redundant.
-		for (auto& fut : futures) { fut.get(); }
 	}
+
+	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-1)");
 
-		// set dirty flag to all children and further descendants of dirty parent
-		bool newDirtyFlags = true;
-
-		while (newDirtyFlags) {
-			newDirtyFlags = false;
-			LocalModelPieceEntity::ForEachView<UpdateFlags, HasAnimation>([&newDirtyFlags](auto&& entityRef, auto&& uf) {
-				if (uf.dirty)
-					return;
-
-				const auto& rhl = entityRef.template Get<const RelationshipHierarchy>();
-				if (rhl.parent == ECS::NullEntity)
-					return;
-
-				const auto parLmpe = LocalModelPieceEntityRef(rhl.parent);
-				const auto& dirtyParent = parLmpe.Get<const UpdateFlags>();
-				if (dirtyParent.dirty) {
-					// if the parent is dirty, this instance is dirty too
-					uf.dirty = true;
-					newDirtyFlags = true;
-				}
-			});
-		}
-	}
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
-		static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
-
-		LocalModelPieceEntity::ForEachViewParallel<UpdateFlags, PieceSpaceTransform, const OriginalBakedTransform, const Position, const Rotation, HasAnimation>([](auto&& entityRef, auto&& uf, auto&& pieceSpaceTransform, auto&& origBakedTra, auto&& pos, auto&& yprRot) {
-			if (!uf.dirty)
-				return;
-
-			// Simplified copy of S3DModelPiece::ComposeTransform()
-#if 0
-			const auto rq = CQuaternion::FromEulerYPRNeg(-yprRot.value);
-			pieceSpaceTransform = Transform{ rq.Rotate(origBakedQuat.value.Rotate(pos)) };
-#else
-			// original copy
-			Transform tra;
-			tra.t = pos;
-			tra *= origBakedTra;
-			tra *= Transform(CQuaternion::FromEulerYPRNeg(-yprRot.value), ZeroVector, 1.0f);
-			pieceSpaceTransform = std::move(tra);
-#endif
-
-		}, EntityExclude<BlockScriptAnims>);
-	}
-
-	static std::vector<std::pair<LocalModelPieceEntityRef, size_t>> allDirtyEntities;
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-0)");
-
-		LocalModelPieceEntity::ForEachView<UpdateFlags, const RelationshipHierarchy, HasAnimation>([](auto&& entityRef, auto&& uf, auto&& rhl) {
-			if (!uf.dirty)
-				return;
-
-			uf.dirty = false;
-			uf.forCurrFrame = true;  //update for current frame
-			allDirtyEntities.emplace_back(std::make_pair(entityRef, rhl.hierarchyLevel));
-
-		}, EntityExclude<BlockScriptAnims>);
-
-	}
-	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-1)");
-		std::sort(allDirtyEntities.begin(), allDirtyEntities.end(), [](auto&& lhs, auto&& rhs) {
-			return std::forward_as_tuple(lhs.second, lhs.first.EntityID()) < std::forward_as_tuple(rhs.second, rhs.first.EntityID());
+		LocalModelPieceEntity::ForEachView<DirtyFlag, HasAnimation>([](auto&& entityRef, auto&& df) {
+			if (df){
+				allDirtyRoots.emplace_back(std::move(entityRef));
+			}
 		});
 	}
 	{
-		ZoneScopedN("CUnitScriptEngine::Tick(ST-2-2)");
-		for (auto& [cer, hl] : allDirtyEntities) {
-			const auto& pieceSpaceTra = cer.Get<const PieceSpaceTransform>();
-			auto& modelSpaceTra = cer.Get<CurrModelSpaceTransform>();
-			const auto per = LocalModelPieceEntityRef(cer.Get<const RelationshipHierarchy>().parent);
+		ZoneScopedN("CUnitScriptEngine::Tick(MT-1)");
 
-			if unlikely(hl == 0) {
-				modelSpaceTra = pieceSpaceTra;
-			}
-			else {
-				const auto& pModelSpaceTra = per.Get<CurrModelSpaceTransform>();
-				modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
-			}
-		}
+		for_mt(0, allDirtyRoots.size(), [](const int i) {
+			auto& dr = allDirtyRoots[i];
+			const auto* rel = &dr.Get<const ParentChildrenRelationship>();
 
-		allDirtyEntities.clear();
+			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
+				rel = &pLmpe.Get<const ParentChildrenRelationship>();
+
+				if (pLmpe.Get<DirtyFlag>()) {
+					dr = pLmpe;
+				}
+			}
+		});
 	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-2)");
+
+		const auto SortingPred = [](const auto& a, const auto& b) {
+			return a.EntityID() < b.EntityID();
+		};
+		const auto UniquePred = [](const auto& a, const auto& b) {
+			return a.EntityID() == b.EntityID();
+		};
+
+		spring::VectorSortUnique(allDirtyRoots, SortingPred, UniquePred);
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(MT-2)");
+
+		static std::array<std::deque<LocalModelPieceEntityRef>, ThreadPool::MAX_THREADS> bfsQueues;
+
+		for_mt(0, allDirtyRoots.size(), [](const int i) {
+			auto& bfsQueue = bfsQueues[ThreadPool::GetThreadNum()];
+
+			bfsQueue.emplace_back(allDirtyRoots[i]);
+
+			while (!bfsQueue.empty()) {
+				auto entityRef = std::move(bfsQueue.front());
+				bfsQueue.pop_front();
+
+				const auto& rel = entityRef.Get<ParentChildrenRelationship>();
+				{
+					const auto [pieceSpaceTransform, modelSpaceTransform, uf, df, origBakedTransform, pos, yprRot] = entityRef.Get<
+						PieceSpaceTransform,
+						CurrModelSpaceTransform,
+						UpdateFlags,
+						DirtyFlag,
+						const OriginalBakedTransform,
+						const Position,
+						const Rotation
+					>();
+
+					// update pieceSpaceTransform from pos+rot+origBakedTransform
+#if 0
+					const auto rq = CQuaternion::FromEulerYPRNeg(-yprRot.value);
+					pieceSpaceTransform = Transform{ rq.Rotate(origBakedTransform.r.Rotate(pos)) };
+#else
+					// original copy
+					Transform tra;
+					tra.t = pos;
+					tra *= origBakedTransform;
+					tra *= Transform(CQuaternion::FromEulerYPRNeg(-yprRot.value), ZeroVector, 1.0f);
+					pieceSpaceTransform = std::move(tra);
+#endif
+					// update modelSpaceTransform from pieceSpaceTransform and parent's modelSpaceTransform
+					const auto pLmpe = LocalModelPieceEntityRef(rel.parent);
+					if unlikely(pLmpe.EntityID() == NullEntity) {
+						modelSpaceTransform = pieceSpaceTransform;
+					}
+					else {
+						const auto& pModelSpaceTransform = pLmpe.Get<CurrModelSpaceTransform>();
+						modelSpaceTransform = pModelSpaceTransform * pieceSpaceTransform;
+					}
+
+					df = false;
+					uf.forCurrFrame = true; //update for current frame
+				}
+
+				// repeat for all children
+				for (auto child : rel.children) {
+					auto cEmpl = LocalModelPieceEntityRef{ child };
+					bfsQueue.emplace_back(std::move(cEmpl));
+				}
+			}
+		});
+	}
+	allDirtyRoots.clear();
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-3)");
 		// send AnimFinished calls and pop up done animations
