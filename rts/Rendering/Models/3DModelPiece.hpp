@@ -43,8 +43,6 @@ struct S3DModelPiece {
 		vertIndex = ~0u;
 		indxStart = ~0u;
 		indxCount = ~0u;
-
-		hierarchyLevel = 0u;
 	}
 
 	virtual float3 GetEmitPos() const;
@@ -113,8 +111,6 @@ public:
 	uint32_t vertIndex = ~0u; // global vertex number offset
 	uint32_t indxStart = ~0u; // global Index VBO offset
 	uint32_t indxCount = ~0u;
-
-	uint32_t hierarchyLevel = 0u;
 protected:
 	std::vector<SVertexData> vertices;
 	std::vector<uint32_t> indices;

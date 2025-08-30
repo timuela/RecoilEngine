@@ -47,12 +47,11 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 
 	lmpe.Add<
 		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
-		UpdateFlags
+		UpdateFlags, DirtyFlag
 	>();
 
 	lmpe.Add<OriginalBakedTransform>(piece->bakedTransform);
-	auto& rhl = lmpe.Add<RelationshipHierarchy>();
-	rhl.hierarchyLevel = original->hierarchyLevel;
+	lmpe.Add<ParentChildrenRelationship>();
 
 	dir = piece->GetEmitDir();
 
@@ -67,12 +66,16 @@ void LocalModelPiece::AddChild(LocalModelPiece* c)
 	assert(c != nullptr);
 
 	using namespace LMP;
-	auto& crh = c->GetLocalModelPieceEntity().Get<RelationshipHierarchy>();
-	crh.parent = lmpe.EntityID();
 
+	auto& cLmpe = c->GetLocalModelPieceEntity();
+	auto cEntId = cLmpe.EntityID();
+	auto& cRel = cLmpe.Get<ParentChildrenRelationship>();
+	cRel.parent = lmpe.EntityID();
 
-	const auto& prh = lmpe.Get<const RelationshipHierarchy>();
-	crh.hierarchyLevel = prh.hierarchyLevel + 1;
+	auto& pRel = lmpe.Get<ParentChildrenRelationship>();
+	auto& chVec = pRel.children;
+
+	chVec.insert(std::lower_bound(chVec.begin(), chVec.end(), cEntId), cEntId);
 
 	c->parent = this;
 	children.push_back(c);
@@ -83,11 +86,17 @@ void LocalModelPiece::RemoveChild(LocalModelPiece* c)
 	assert(c != nullptr);
 
 	using namespace LMP;
-	auto& crh = c->GetLocalModelPieceEntity().Get<RelationshipHierarchy>();
 
-	crh.parent = ECS::NullEntity;
+	auto& cLmpe = c->GetLocalModelPieceEntity();
+	auto& cRel = cLmpe.Get<ParentChildrenRelationship>();
+	cRel.parent = ECS::NullEntity;
+
+	auto& pRel = lmpe.Get<ParentChildrenRelationship>();
+	auto it = std::find(pRel.children.begin(), pRel.children.end(), cLmpe.EntityID());
+	if (it != pRel.children.end())
+		pRel.children.erase(it);
+
 	c->parent = nullptr;
-
 	children.erase(std::find(children.begin(), children.end(), c));
 }
 
@@ -98,8 +107,8 @@ void LocalModelPiece::SetDirty(bool state) const {
 	using namespace LMP;
 
 	// hack to override the constness
-	auto& uf = lmpe.GetMutable<UpdateFlags>();
-	uf.dirty = state;
+	auto& df = lmpe.GetMutable<DirtyFlag>();
+	df = state;
 
 	for (LocalModelPiece* child: children) {
 		if (child->GetDirty())
@@ -113,7 +122,7 @@ bool LocalModelPiece::GetDirty() const
 {
 	using namespace LMP;
 
-	return lmpe.Get<const UpdateFlags>().dirty;
+	return lmpe.Get<const DirtyFlag>().value;
 }
 
 const float3& LocalModelPiece::GetPosition() const {
@@ -319,7 +328,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 	if (updateChildTransform) {
 		auto [modelSpaceTra, rhl] = lmpe.GetMutable<
 			CurrModelSpaceTransform,
-			const RelationshipHierarchy
+			const ParentChildrenRelationship
 		>();
 
 		if (rhl.parent != ECS::NullEntity) {
@@ -351,18 +360,18 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 	auto& wasUpdated = lmpe.GetMutable<UpdateFlags>();
 	wasUpdated.forCurrFrame = true;  //update for current frame
 
-	auto [pos, rot, modelSpaceTra, pieceSpaceTra, rhl] = lmpe.GetMutable<
+	auto [pos, rot, modelSpaceTra, pieceSpaceTra, rel] = lmpe.GetMutable<
 		const Position,
 		const Rotation,
 		CurrModelSpaceTransform,
 		PieceSpaceTransform,
-		const RelationshipHierarchy
+		const ParentChildrenRelationship
 	>();
 
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 
-	if (rhl.parent != ECS::NullEntity) {
-		LocalModelPieceEntityRef pLmpe(rhl.parent);
+	if (rel.parent != ECS::NullEntity) {
+		LocalModelPieceEntityRef pLmpe(rel.parent);
 		const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
 		modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
 	}

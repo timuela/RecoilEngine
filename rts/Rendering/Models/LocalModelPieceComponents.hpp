@@ -37,17 +37,12 @@ namespace LMP {
 
 	struct ParentChildrenRelationship {
 		ECS::EntityType parent{ entt::null };
-		ECS::EntityType firstChild{ entt::null };
-		ECS::EntityType nextSibling{ entt::null };
+		std::vector<ECS::EntityType> children;
 	};
 
-	struct RelationshipHierarchy {
-		ECS::EntityType parent{ entt::null };
-		uint32_t hierarchyLevel{ 0 };
-	};
+	ALIAS_COMPONENT_DEF(DirtyFlag, bool, true);
 
 	struct UpdateFlags {
-		bool dirty = true;
 		bool forCurrFrame = true;
 		bool forPrevFrame = true;
 	};
