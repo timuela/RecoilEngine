@@ -162,7 +162,6 @@ namespace spring {
 
 		void Del(const TKey& key) {
 			const auto kpIt = kpMap.find(key);
-
 			assert(kpIt != kpMap.end());
 
 			const size_t posToDel = kpIt->second;
