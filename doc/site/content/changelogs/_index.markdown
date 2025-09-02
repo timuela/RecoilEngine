@@ -145,6 +145,11 @@ See [the 2025.04 page]({{% ref "changelogs/changelog-2025-04" %}}) for the upcom
 
 ### Misc
 
+- add `accurateLeading` numerical unit weapon tag (note, not weaponDef). Controls how many extra accuracy iterations are done when calculating shots.
+0: current behaviour (single iteration, fails to hit at large speed disparities and/or weird angles).
+1: one extra iteration, enough to get a perfect solution for non-ballistic shots and usually good enough for non-extreme ballistic shots too.
+2+: extra iterations for ballistic shots, if needed. In practice, shouldn't need to go higher than low single-digit values.
+Note that the calculation always stops when 1-frame resolution accuracy is achieved (since unit and projectile movement are all frame-discrete), so setting this arbitrarily high should still be safe and reasonably performant.
 - math extras (`math.hypot`, `math.normalize`, bit ops etc) now available in LuaParser envs (modrules, defs parsing, etc).
 - added `Spring.GetFactoryCommandCount(unitID) → number` checks the queue length in a factory's build queue (note that `GetUnitCommandCount` is for the rally queue in factories).
 - add `ThreadPinPolicy` springsetting to control which CPUs to use. (0) = Off; (1) = System Default; (2) = Exclusive Performance Core; (3) = Share Performance Cores.
@@ -152,6 +157,7 @@ See [the 2025.04 page]({{% ref "changelogs/changelog-2025-04" %}}) for the upcom
 - `BeamLaser` and `LightningCannon` type weapons now pass their actual projectileID to callins rather than `-1`.
 - `BeamLaser` and `LightningCannon` now obey ellipsoid and/or cylinder target volumes correctly.
 - immobile units that `canKamikaze` no longer disregard the `blocking` unit def tag.
+- add 'system.nativeExcessSharing' modrule, controls whether the resource sharing level (aka "red slider") applies. Note that this also prevents excess from flowing back to the allyteam. If you want excess to flow to allies and only block changing the share level, use the existing `gadget:AllowResourceLevel`.
 - add `MiniMapDrawPings` boolean springsetting, defaults to true. Whether engine renders pulsating white squares on the minimap when a label is placed.
 - if a factory "changes" a build order into a build order of the same type (e.g. by using command insert) it no longer resets build progress.
 - `/group add N` no longer selects the entire group, just adds. `/groupN` (without space) unaffected. Feature support tag: `Engine.FeatureSupport.groupAddDoesntSelect`.
@@ -161,6 +167,9 @@ See [the 2025.04 page]({{% ref "changelogs/changelog-2025-04" %}}) for the upcom
 - add a second bool arg and an optional second return value to `Spring.GetGroundDecalTextures(bool? mainTex, bool? alsoFilenames = false) → string[] textures, string[]? filenames`.
 - add `mouse2` to `mouse10` "keys" for mousebuttons that can be bound, ditto `sc_mouse2-10` scancodes.
   LMB (`mouse1`/`sc_mouse1`) is planned to be made bindable later.
+- added `DWMFlush` numerical springsetting, for Windows only. Forces Windows Desktop Compositors DWMFlush before each SDL_GL_SwapWindow,
+preventing dropped frames (use nVidias FrameView to validate dropped frames, or BARs Jitter Timer widget).
+Value of 1 does DWMFlush before SwapBuffers, value of 2 does DWMFlush after swapbuffers.
 - enabling dev mode (either via startscript or at runtime) adds `debug.*` functions to synced Lua.
 - `/smoothmesh` renderer stays enabled even if you disable cheats.
 - trying to set a deprecated/nonexistent springsetting via Lua now produces a warning.
@@ -171,8 +180,10 @@ See [the 2025.04 page]({{% ref "changelogs/changelog-2025-04" %}}) for the upcom
 
 - fixed crashing aircraft sometimes bouncing off the ground without dying.
 - disabling cheats no longer disables debug airmesh view.
+- fix RmlUi crash when reloading stylesheets with documents containing scripts in head section.
 - fix some graphical interfaces producing harmless warnings/errors on headless builds.
 - fix some RmlUI crashes.
 - fix some remaining performance issues with fonts.
 - fix some pathing/QTPFS issues.
+- fix some jitter on Windows in mostly-idle and/or low speed multiplayer games.
 - fix some issues with models rendering at world origin before game start.
