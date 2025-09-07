@@ -45,6 +45,8 @@ class LuaSyncedCtrl
 		static int GameOver(lua_State* L);
 		static int SetGlobalLos(lua_State* L);
 
+		static int SetPlayerReadyState(lua_State* L);
+
 		static int AddTeamResource(lua_State* L);
 		static int UseTeamResource(lua_State* L);
 		static int SetTeamResource(lua_State* L);

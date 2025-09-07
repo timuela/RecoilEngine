@@ -4192,6 +4192,31 @@ int LuaUnsyncedCtrl::ForceTesselationUpdate(lua_State* L)
 	return 1;
 }
 
+/*** @function Spring.RequestStartPosition
+ *
+ * Requests a startpoint, as if clicking the spot with the native GUI.
+ *
+ * @param x number
+ * @param y number
+ * @param z number
+ * @param ready? boolean
+ */
+int LuaUnsyncedCtrl::RequestStartPosition(lua_State* L) {
+	const float3 pickPos =
+		{ luaL_checkfloat(L, 1)
+		, luaL_checkfloat(L, 2)
+		, luaL_checkfloat(L, 3)
+	};
+	const bool isReady = luaL_optboolean(L, 4, playerHandler.Player(gu->myPlayerNum)->IsReadyToStart());
+
+	const int readyState = isReady
+		? CPlayer::PLAYER_RDYSTATE_READIED
+		: CPlayer::PLAYER_RDYSTATE_UPDATED
+	;
+	clientNet->Send(CBaseNetProtocol::Get().SendStartPos(gu->myPlayerNum, gu->myTeam, readyState, pickPos.x, pickPos.y, pickPos.z));
+
+	return 0;
+}
 
 /******************************************************************************
  * AI
