@@ -1,22 +1,24 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef _SPRING_UNORDERED_MAP_H_
-#define _SPRING_UNORDERED_MAP_H_
+#pragma once
 
-#define USE_EMILIB_HASH_MAP
+//#define USE_EMILIB_HASH_MAP
 // boost's implementation also uses LL buckets; see boost/unordered/detail/buckets.hpp
 // (we want open addressing, so google's {sparse,dense}_hash_map are better candidates)
-// #define USE_BOOST_HASH_MAP
+#define USE_BOOST_HASH_MAP
 
 
 #ifndef USE_EMILIB_HASH_MAP
 	#ifdef USE_BOOST_HASH_MAP
-	#include <boost/unordered_map.hpp>
+	#include "EqualTo.hpp"
+	#include <boost_unordered/boost_unordered.hpp>
+	#include "SpringHash.h"
 
 	namespace spring {
-		using boost::unordered_map;
-		using boost::unordered_multimap;
-		using unsynced_map = boost::unordered_map;
+		template<typename K, typename V, typename H = spring::synced_hash<K>, typename C = Recoil::EqualTo<K>>
+		using unordered_map = boost::unordered_flat_map<K, V, H, C>;
+		template<typename K, typename V, typename H = std::hash<K>, typename C = Recoil::EqualTo<K>>
+		using unsynced_map = boost::unordered_flat_map<K, V, H, C>;
 	};
 
 	#else
@@ -42,19 +44,19 @@
 		template<typename K, typename V, typename H = std::hash<K>, typename C = emilib::HashMapEqualTo<K>>
 		using unsynced_map = emilib::HashMap<K, V, H, C>;
 	};
-
-	namespace Recoil {
-		template<typename Map, typename MapPureT = std::remove_cvref_t<Map>>
-		auto map_try_get(Map&& map, const typename MapPureT::key_type& key) {
-			constexpr bool mapIsConst = std::is_const_v<typename std::remove_reference<Map>::type>;
-			using ReturnType = std::conditional_t<mapIsConst, const typename MapPureT::mapped_type, typename MapPureT::mapped_type>;
-			if (auto it = map.find(key); it == map.end())
-				return static_cast<ReturnType*>(nullptr);
-			else
-				return static_cast<ReturnType*>(&it->second);
-		}
-	}
 #endif
+
+namespace Recoil {
+	template<typename Map, typename MapPureT = std::remove_cvref_t<Map>>
+	auto map_try_get(Map&& map, const typename MapPureT::key_type& key) {
+		constexpr bool mapIsConst = std::is_const_v<typename std::remove_reference<Map>::type>;
+		using ReturnType = std::conditional_t<mapIsConst, const typename MapPureT::mapped_type, typename MapPureT::mapped_type>;
+		if (auto it = map.find(key); it == map.end())
+			return static_cast<ReturnType*>(nullptr);
+		else
+			return static_cast<ReturnType*>(&it->second);
+	}
+}
 
 
 namespace spring {
@@ -66,13 +68,14 @@ namespace spring {
 	template<typename K, typename V>
 	class unordered_bimap {
 	public:
-		typedef spring::unordered_map<K, V> kv_map_type;
-		typedef spring::unordered_map<V, K> vk_map_type;
+		using kv_map_type = spring::unordered_map<K, V>;
+		using vk_map_type = spring::unordered_map<V, K>;
 
 		const kv_map_type& first() const { return kv_map; }
 		const vk_map_type& second() const { return vk_map; }
 
-		unordered_bimap(const std::initializer_list< std::pair<K, V> >& list): kv_map(list)
+		unordered_bimap(std::initializer_list<std::pair<const K, V>> list)
+			: kv_map(list)
 		{
 			vk_map.reserve(list.size());
 
@@ -88,6 +91,3 @@ namespace spring {
 		      vk_map_type vk_map;
 	};
 };
-
-#endif
-

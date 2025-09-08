@@ -1447,7 +1447,7 @@ void CGroundDecalHandler::CompactDecalsVector(int frameNum)
 
 	idToPos.clear();
 	for (size_t i = 0; i < decals.size(); ++i) {
-		idToPos.emplace(decals[i].info.id, i);
+		idToPos.emplace(static_cast<uint32_t>(decals[i].info.id), i);
 	}
 
 	// update the new positions of shrunk decals vector

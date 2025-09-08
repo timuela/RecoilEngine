@@ -1,20 +1,22 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef _SPRING_UNORDERED_SET_H_
-#define _SPRING_UNORDERED_SET_H_
+#pragma once
 
-#define USE_EMILIB_HASH_SET
-// #define USE_BOOST_HASH_SET
+//#define USE_EMILIB_HASH_SET
+#define USE_BOOST_HASH_SET
 
 
 #ifndef USE_EMILIB_HASH_SET
 	#ifdef USE_BOOST_HASH_SET
-	#include <boost/unordered_set.hpp>
+	#include "EqualTo.hpp"
+	#include "SpringHash.h"
+	#include <boost_unordered/boost_unordered.hpp>
 
 	namespace spring {
-		using boost::unordered_set;
-		using boost::unordered_multiset;
-		using unsynced_set = boost::unordered_set;
+		template<typename K, typename H = spring::synced_hash<K>, typename C = Recoil::EqualTo<K>>
+		using unordered_set = boost::unordered_flat_set<K, H, C>;
+		template<typename K, typename H = std::hash<K>, typename C = Recoil::EqualTo<K>>
+		using unsynced_set = boost::unordered_flat_set<K, H, C>;
 	};
 
 	#else
@@ -47,7 +49,3 @@ namespace spring {
 	// lead to differences in iteration order and then desyncs
 	template<typename C> void clear_unordered_set(C& cont) { cont = C(); }
 };
-
-
-#endif
-

@@ -206,7 +206,7 @@ QTPFS::PathManager::~PathManager() {
 
 		nodeLayers[layerNum].Clear();
 	}
-	std::for_each(pathTraces.begin(), pathTraces.end(), [](std::pair<unsigned int, QTPFS::PathSearchTrace::Execution*>& t){delete t.second;} );
+	std::for_each(pathTraces.begin(), pathTraces.end(), [](auto& t){delete t.second;} );
 
 	auto clearTrackers = [](auto& track){
 		track.damageMap.clear();

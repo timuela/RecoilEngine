@@ -1020,7 +1020,7 @@ bool CArchiveScanner::GetArchiveChecksum(const std::string& archiveName, Archive
 
 		auto it = archiveInfo.filesInfo.find(fi.fileName);
 		if (it == archiveInfo.filesInfo.end())
-			it = archiveInfo.filesInfo.emplace(fi.fileName, {}).first;
+			it = archiveInfo.filesInfo.emplace(fi.fileName, FileInfo{}).first;
 
 		if (fi.modTime != it->second.modTime || fi.size != it->second.size) {
 			it->second.modTime = fi.modTime;

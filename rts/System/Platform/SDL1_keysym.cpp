@@ -1,12 +1,13 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
+#include <initializer_list>
 #include "SDL1_keysym.h"
 #include <SDL_keycode.h>
 
 #include "System/Log/ILog.h"
 #include "System/UnorderedMap.hpp"
 
-static const spring::unordered_bimap<int, int> SDL_keysym_bimap = {
+static const spring::unordered_bimap<int, int> SDL_keysym_bimap(std::initializer_list<std::pair<const int, int>> {
 	{SDLK_UNKNOWN, 0},
 
 	{SDLK_RETURN, 13},
@@ -255,8 +256,7 @@ static const spring::unordered_bimap<int, int> SDL_keysym_bimap = {
 //	{SDLK_KBDILLUMUP, 0},
 //	{SDLK_EJECT, 0},
 //	{SDLK_SLEEP, 0},
-};
-
+});
 
 int SDL21_keysyms(const int SDL2_keycode)
 {
