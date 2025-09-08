@@ -1,3 +1,4 @@
+include_directories(${Spring_SOURCE_DIR}/rts/lib)
 include_directories(${Spring_SOURCE_DIR}/rts/lib/asio/include)
 include_directories(${Spring_SOURCE_DIR}/rts)
 add_library(engineSystemNet STATIC
