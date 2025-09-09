@@ -1,3 +1,5 @@
+set(rts "${CMAKE_SOURCE_DIR}/rts")
+include_directories(${rts}/lib)
 
 if (TRACY_PROFILE_MEMORY)
 	set(memoryProfileSource "${CMAKE_CURRENT_SOURCE_DIR}/TraceMemory.cpp")
