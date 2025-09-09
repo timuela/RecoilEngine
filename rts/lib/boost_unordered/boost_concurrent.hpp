@@ -7125,6 +7125,7 @@ BOOST_FORCEINLINE void sp_thread_pause() noexcept
 #undef BOOST_CORE_SP_PAUSE
 
 #endif // #ifndef BOOST_CORE_DETAIL_SP_THREAD_PAUSE_HPP_INCLUDED
+#if defined( _WIN32 ) || defined( __WIN32__ ) || defined( __CYGWIN__ )
 #ifndef BOOST_CORE_DETAIL_SP_WIN32_SLEEP_HPP_INCLUDED
 #define BOOST_CORE_DETAIL_SP_WIN32_SLEEP_HPP_INCLUDED
 
@@ -7179,6 +7180,7 @@ extern "C" __declspec(dllimport) int BOOST_CORE_SP_STDCALL SwitchToThread();
 } // namespace boost
 
 #endif // #ifndef BOOST_CORE_DETAIL_SP_WIN32_SLEEP_HPP_INCLUDED
+#endif // #if defined( _WIN32 ) || defined( __WIN32__ ) || defined( __CYGWIN__ )
 #ifndef BOOST_CORE_DETAIL_SP_THREAD_YIELD_HPP_INCLUDED
 #define BOOST_CORE_DETAIL_SP_THREAD_YIELD_HPP_INCLUDED
 
