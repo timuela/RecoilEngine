@@ -8,14 +8,14 @@
 
 #ifndef USE_EMILIB_HASH_SET
 	#ifdef USE_BOOST_HASH_SET
-	#include "EqualTo.hpp"
 	#include "SpringHash.h"
+	#include <functional>
 	#include <boost_unordered/boost_unordered.hpp>
 
 	namespace spring {
-		template<typename K, typename H = spring::synced_hash<K>, typename C = Recoil::EqualTo<K>>
+		template<typename K, typename H = spring::synced_hash<K>, typename C = std::equal_to<K>>
 		using unordered_set = boost::unordered_flat_set<K, H, C>;
-		template<typename K, typename H = std::hash<K>, typename C = Recoil::EqualTo<K>>
+		template<typename K, typename H = std::hash<K>, typename C = std::equal_to<K>>
 		using unsynced_set = boost::unordered_flat_set<K, H, C>;
 	};
 

@@ -10,14 +10,14 @@
 
 #ifndef USE_EMILIB_HASH_MAP
 	#ifdef USE_BOOST_HASH_MAP
-	#include "EqualTo.hpp"
 	#include <boost_unordered/boost_unordered.hpp>
+	#include <functional>
 	#include "SpringHash.h"
 
 	namespace spring {
-		template<typename K, typename V, typename H = spring::synced_hash<K>, typename C = Recoil::EqualTo<K>>
+		template<typename K, typename V, typename H = spring::synced_hash<K>, typename C = std::equal_to<K>>
 		using unordered_map = boost::unordered_flat_map<K, V, H, C>;
-		template<typename K, typename V, typename H = std::hash<K>, typename C = Recoil::EqualTo<K>>
+		template<typename K, typename V, typename H = std::hash<K>, typename C = std::equal_to<K>>
 		using unsynced_map = boost::unordered_flat_map<K, V, H, C>;
 	};
 
