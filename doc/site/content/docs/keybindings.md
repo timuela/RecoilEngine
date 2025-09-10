@@ -52,6 +52,9 @@ Pressing `z` in a [qwerty] keyboard will say `hi from sc_z`. Pressing `y` on a [
 
 Scancodes are mostly similar to keycodes, with the `sc_` prefix, e.g. `sc_a`, `sc_b`, etc. See [here](https://github.com/beyond-all-reason/RecoilEngine/blob/master/rts/Game/UI/ScanCodes.cpp#L60-L224) for a list of all available scancodes.
 
+[qwerty]: https://www.kbdlayout.info/KBDUS/
+[qwertz]: https://www.kbdlayout.info/kbdgr/
+
 ### Modifiers
 
 The following modifiers are available: `alt`, `ctrl`, `shift`, `meta`, `any`.
