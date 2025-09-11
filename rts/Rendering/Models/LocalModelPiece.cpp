@@ -42,21 +42,14 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	assert(piece != nullptr);
 
 	using namespace LMP;
-	auto [pos, rot] = lmpe.Add<Position, Rotation>();
+	auto [pos, rot] = lmpe.Get<Position, Rotation>();
 	pos = piece->offset;
 
-	lmpe.Add<
-		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
-		UpdateFlags, DirtyFlag
-	>();
-
-	lmpe.Add<OriginalBakedTransform>(piece->bakedTransform);
-	lmpe.Add<ParentChildrenRelationship>();
+	lmpe.Set<OriginalBakedTransform>(piece->bakedTransform);
 
 	dir = piece->GetEmitDir();
 
-	lmpe.Add<PieceSpaceTransform>(CalcPieceSpaceTransform(pos, rot, piece->scale));
-	lmpe.Add<CurrModelSpaceTransform, PrevModelSpaceTransform>();
+	lmpe.Set<PieceSpaceTransform>(CalcPieceSpaceTransform(pos, rot, piece->scale));
 
 	children.reserve(piece->children.size());
 }
@@ -89,7 +82,7 @@ void LocalModelPiece::RemoveChild(LocalModelPiece* c)
 
 	auto& cLmpe = c->GetLocalModelPieceEntity();
 	auto& cRel = cLmpe.Get<ParentChildrenRelationship>();
-	cRel.parent = ECS::NullEntity;
+	cRel.parent = recs::NullEntity;
 
 	auto& pRel = lmpe.Get<ParentChildrenRelationship>();
 	auto it = std::find(pRel.children.begin(), pRel.children.end(), cLmpe.EntityID());
@@ -331,7 +324,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 			const ParentChildrenRelationship
 		>();
 
-		if (rhl.parent != ECS::NullEntity) {
+		if (rhl.parent != recs::NullEntity) {
 			const LocalModelPieceEntityRef pLmpe(rhl.parent);
 			const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
 			modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
@@ -370,7 +363,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 
-	if (rel.parent != ECS::NullEntity) {
+	if (rel.parent != recs::NullEntity) {
 		LocalModelPieceEntityRef pLmpe(rel.parent);
 		const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
 		modelSpaceTra = pModelSpaceTra * pieceSpaceTra;

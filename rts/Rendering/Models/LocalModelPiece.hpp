@@ -4,8 +4,10 @@
 #include <vector>
 #include <array>
 #include <cstdint>
+#include "LocalModelPieceComponents.hpp"
+#include "Sim/Units/Scripts/AnimComponents.hpp"
 #include "System/Transform.hpp"
-#include "System/Ecs/EntityOwner.hpp"
+#include "System/Ecs/RecsEntityOwner.hpp"
 #include "Sim/Misc/CollisionVolume.h"
 #include "System/creg/creg_cond.h"
 
@@ -14,13 +16,71 @@ struct S3DModelPiece;
 struct LocalModel;
 struct LocalModelPiece;
 
-using LocalModelPieceEntity = ECS::EntityOwner<LocalModelPiece>;
-using LocalModelPieceEntityRef = ECS::EntityReference<LocalModelPiece>;
+using namespace LMP;
+
+using LocalModelPieceEntity = RECS::EntityOwner<
+	Position,
+	Rotation,
+	PositionNoInterpolation,
+	RotationNoInterpolation,
+	ScalingNoInterpolation,
+	UpdateFlags,
+	DirtyFlag,
+	OriginalBakedTransform,
+	ParentChildrenRelationship,
+	PieceSpaceTransform,
+	CurrModelSpaceTransform,
+	PrevModelSpaceTransform,
+	AnimInfoTurnX,
+	AnimInfoTurnY,
+	AnimInfoTurnZ,
+	AnimInfoSpinX,
+	AnimInfoSpinY,
+	AnimInfoSpinZ,
+	AnimInfoMoveX,
+	AnimInfoMoveY,
+	AnimInfoMoveZ,
+	SpinAnimation,
+	MoveAnimation,
+	TurnAnimation,
+	HasAnimation,
+	BlockScriptAnims
+>;
+
+using LocalModelPieceEntityRef = RECS::EntityReference<
+	Position,
+	Rotation,
+	PositionNoInterpolation,
+	RotationNoInterpolation,
+	ScalingNoInterpolation,
+	UpdateFlags,
+	DirtyFlag,
+	OriginalBakedTransform,
+	ParentChildrenRelationship,
+	PieceSpaceTransform,
+	CurrModelSpaceTransform,
+	PrevModelSpaceTransform,
+	AnimInfoTurnX,
+	AnimInfoTurnY,
+	AnimInfoTurnZ,
+	AnimInfoSpinX,
+	AnimInfoSpinY,
+	AnimInfoSpinZ,
+	AnimInfoMoveX,
+	AnimInfoMoveY,
+	AnimInfoMoveZ,
+	SpinAnimation,
+	MoveAnimation,
+	TurnAnimation,
+	HasAnimation,
+	BlockScriptAnims
+>;
 
 /**
  * LocalModel
  * Instance of S3DModel. Container for the geometric properties & piece visibility status of the agent's instance of a 3d model.
  */
+
 
 struct LocalModelPiece
 {

@@ -224,6 +224,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	using namespace LMP;
 	using namespace ECS;
+	using namespace recs;
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
@@ -236,6 +237,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 			static constexpr auto AnimComponentListIndex = animType * AnimAxisCount + animAxis;
 			LocalModelPieceEntity::SetParallelNumberOfChunks(128); // tune this
+
 			if constexpr (animType == ATurn) {
 				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
@@ -251,7 +253,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
 				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
@@ -268,7 +270,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
 				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
@@ -286,7 +288,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
@@ -313,7 +315,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			auto& dr = allDirtyRoots[i];
 			const auto* rel = &dr.Get<const ParentChildrenRelationship>();
 
-			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
+			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != recs::NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
 				rel = &pLmpe.Get<const ParentChildrenRelationship>();
 
 				if (pLmpe.Get<DirtyFlag>()) {
@@ -374,7 +376,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 #endif
 					// update modelSpaceTransform from pieceSpaceTransform and parent's modelSpaceTransform
 					const auto pLmpe = LocalModelPieceEntityRef(rel.parent);
-					if unlikely(pLmpe.EntityID() == NullEntity) {
+					if unlikely(pLmpe.EntityID() == recs::NullEntity) {
 						modelSpaceTransform = pieceSpaceTransform;
 					}
 					else {
