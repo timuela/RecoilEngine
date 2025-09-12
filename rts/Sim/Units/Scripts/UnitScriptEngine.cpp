@@ -420,7 +420,9 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, FinalizeAnimation);
-
+	}
+	{
+		ZoneScopedN("CUnitScriptEngine::Tick(ST-4)");
 		// remove HasAnimation
 		LocalModelPieceEntity::ForEachView<HasAnimation>([this](auto&& entityRef) {
 			bool hasAnimation = false;
