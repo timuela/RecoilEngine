@@ -185,7 +185,7 @@ public:
 
 	HashMap() = default;
 	HashMap(size_t num_elems) { reserve(num_elems); }
-	HashMap(const std::initializer_list< std::pair<KeyT, ValueT> >& l)
+	HashMap(std::initializer_list<std::pair<const KeyT, ValueT>> l)
 	{
 		reserve(l.size());
 		for (const auto& pair: l) {

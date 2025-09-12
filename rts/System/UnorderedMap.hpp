@@ -2,7 +2,7 @@
 
 #pragma once
 
-//#define USE_EMILIB_HASH_MAP
+#define USE_EMILIB_HASH_MAP
 // boost's implementation also uses LL buckets; see boost/unordered/detail/buckets.hpp
 // (we want open addressing, so google's {sparse,dense}_hash_map are better candidates)
 #define USE_BOOST_HASH_MAP
