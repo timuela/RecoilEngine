@@ -177,7 +177,7 @@ namespace Impl{
 		float delta = math::fmod(dest - cur + math::THREEPI, math::TWOPI) - math::PI;
 
 		if (math::fabsf(delta) <= speed) {
-			cur = dest;
+			cur = ClampRad(dest);
 			return true;
 		}
 
@@ -223,12 +223,13 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	cobEngine->Tick(deltaTime);
 
 	using namespace LMP;
-	using namespace ECS;
-	using namespace recs;
+	using namespace Flecs;
+
+	//LOG(LocalModelPieceEntity::DumpRegistry().c_str());
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
-
+		/*
 		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
@@ -237,9 +238,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 			static constexpr auto AnimComponentListIndex = animType * AnimAxisCount + animAxis;
 			LocalModelPieceEntity::SetParallelNumberOfChunks(128); // tune this
-
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -253,10 +253,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, ExcludeComponentsList<BlockScriptAnims>);
+				}, ExcludedComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachView<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -270,10 +270,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, ExcludeComponentsList<BlockScriptAnims>);
+				}, ExcludedComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachView<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = pos.value[animAxis];
@@ -288,7 +288,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, ExcludeComponentsList<BlockScriptAnims>);
+				}, ExcludedComponentsList<BlockScriptAnims>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
@@ -296,6 +296,103 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
+		*/
+		LocalModelPieceEntity::ForEachView<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoTurnX, AnimInfoTurnY, AnimInfoTurnZ>(); aiX || aiY || aiZ) {
+
+				auto [rot, noInterpolate] = entityRef.template Get<Rotation, RotationNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &rot, &df]<typename AnimInfoType>(AnimInfoType& ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::TurnToward(newValue, ai.dest, ai.speed / tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoSpinX, AnimInfoSpinY, AnimInfoSpinZ>(); aiX || aiY || aiZ) {
+
+				auto [rot, noInterpolate] = entityRef.template Get<Rotation, RotationNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &rot, &df]<typename AnimInfoType>(AnimInfoType& ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::DoSpin(newValue, ai.dest, ai.speed, ai.accel, tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoMoveX, AnimInfoMoveY, AnimInfoMoveZ>(); aiX || aiY || aiZ) {
+
+				auto [pos, noInterpolate] = entityRef.template Get<Position, PositionNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &pos, &df]<typename AnimInfoType>(AnimInfoType & ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = pos.value[animAxis];
+					auto newValue = pos.value[animAxis];
+					ai.done |= Impl::MoveToward(newValue, ai.dest, ai.speed / tickRate);
+					pos.value[animAxis] = newValue;
+
+					if (curValue == newValue)
+						return;
+
+					pos.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+		}, ExcludedComponentsList<BlockScriptAnims>);
 	}
 
 	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;
@@ -315,7 +412,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			auto& dr = allDirtyRoots[i];
 			const auto* rel = &dr.Get<const ParentChildrenRelationship>();
 
-			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != recs::NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
+			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
 				rel = &pLmpe.Get<const ParentChildrenRelationship>();
 
 				if (pLmpe.Get<DirtyFlag>()) {
@@ -352,7 +449,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 				const auto& rel = entityRef.Get<ParentChildrenRelationship>();
 				{
-					const auto [pieceSpaceTransform, modelSpaceTransform, uf, df, origBakedTransform, pos, yprRot] = entityRef.Get<
+					auto [pieceSpaceTransform, modelSpaceTransform, uf, df, origBakedTransform, pos, yprRot] = entityRef.Get<
 						PieceSpaceTransform,
 						CurrModelSpaceTransform,
 						UpdateFlags,
@@ -376,7 +473,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 #endif
 					// update modelSpaceTransform from pieceSpaceTransform and parent's modelSpaceTransform
 					const auto pLmpe = LocalModelPieceEntityRef(rel.parent);
-					if unlikely(pLmpe.EntityID() == recs::NullEntity) {
+					if unlikely(pLmpe.EntityID() == NullEntity) {
 						modelSpaceTransform = pieceSpaceTransform;
 					}
 					else {
@@ -418,7 +515,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				entityRef.template Remove<AnimInfoType>();
 			});
 		};
-
+		auto token = LocalModelPieceEntity::ScopedDefer();
 		spring::type_list_exec_all(AnimComponentList, FinalizeAnimation);
 	}
 	{
@@ -437,7 +534,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			}
 
 			if (!hasAnimation)
-				entityRef.template Remove<HasAnimation>();
+				entityRef.template Disable<HasAnimation>();
 		});
 	}
 

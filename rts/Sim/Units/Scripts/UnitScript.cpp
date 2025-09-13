@@ -36,6 +36,7 @@
 #include "Rendering/Env/Particles/Classes/WreckProjectile.h"
 #include "Rendering/Models/3DModel.hpp"
 #include "Rendering/Models/3DModelPiece.hpp"
+#include "Rendering/Models/LocalModelPieceComponents.hpp"
 #include "Sim/Units/CommandAI/CommandAI.h"
 #include "Sim/Units/CommandAI/Command.h"
 #include "Sim/Units/UnitTypes/Factory.h"
@@ -108,7 +109,7 @@ namespace Impl {
 		}
 
 		if (!hasAnimation)
-			lmpe.Remove<HasAnimation>();
+			lmpe.Disable<LMP::HasAnimation>();
 	}
 
 	template<typename AnimInfoType>
@@ -168,7 +169,7 @@ namespace Impl {
 		}
 
 		// search or emplace the requested animation type
-		auto& ai = lmpe.GetOrAdd<AnimInfoType>();
+		auto& ai = lmpe.GetOrAdd<AnimInfoType>(flecs::DontFragment);
 		ai.scriptId = self.GetId();
 		ai.piece = piece;
 		ai.dest = destf;
@@ -176,7 +177,7 @@ namespace Impl {
 		ai.accel = accel;
 		ai.done = false;
 
-		lmpe.GetOrAdd<HasAnimation>();
+		lmpe.Enable<LMP::HasAnimation>();
 	}
 
 	template<typename AnimInfoType>

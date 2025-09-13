@@ -12,7 +12,8 @@ using AnimTypeInt = std::underlying_type_t<AnimType>;
 
 template<AnimTypeInt AT, size_t AA>
 struct AnimInfoBase {
-	static constexpr auto compCat = recs::ComponentCategory::Sparse;
+	inline static const auto flecsTraits = flecs::DontFragment;
+
 	static constexpr auto animType = AT;
 	static constexpr auto animAxis = AA;
 
@@ -69,7 +70,6 @@ static constexpr auto AnimComponentList = spring::type_list<
 >;
 
 struct SpinAnimation {
-	static constexpr auto compCat = recs::ComponentCategory::Sparse;
 	static constexpr auto animType = ASpin;
 
 	float3 src{};
@@ -102,7 +102,6 @@ struct SpinAnimation {
 
 template<AnimTypeInt AT>
 struct MoveTurnAnimation {
-	static constexpr auto compCat = recs::ComponentCategory::Sparse;
 	static constexpr auto animType = AT;
 
 	float3 src{};
@@ -134,7 +133,3 @@ struct MoveTurnAnimation {
 
 using MoveAnimation = MoveTurnAnimation<AMove>;
 using TurnAnimation = MoveTurnAnimation<ATurn>;
-
-struct HasAnimation {
-	static constexpr auto compCat = recs::ComponentCategory::Sparse;
-};

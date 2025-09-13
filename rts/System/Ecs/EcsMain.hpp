@@ -4,6 +4,7 @@
 
 #define ENTT_USE_ATOMIC
 
+#include <flecs/flecs.h>
 #include "lib/entt/src/entt/entt.hpp"
 
 namespace ECS {

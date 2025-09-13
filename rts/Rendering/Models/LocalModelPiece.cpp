@@ -42,14 +42,23 @@ LocalModelPiece::LocalModelPiece(const S3DModelPiece* piece)
 	assert(piece != nullptr);
 
 	using namespace LMP;
-	auto [pos, rot] = lmpe.Get<Position, Rotation>();
+	auto [pos, rot] = lmpe.Add<Position, Rotation>();
 	pos = piece->offset;
 
-	lmpe.Set<OriginalBakedTransform>(piece->bakedTransform);
+	lmpe.Add<
+		PositionNoInterpolation, RotationNoInterpolation, ScalingNoInterpolation,
+		UpdateFlags, DirtyFlag
+	>();
+
+	lmpe.Add<OriginalBakedTransform>(piece->bakedTransform);
+	lmpe.Add<ParentChildrenRelationship>();
 
 	dir = piece->GetEmitDir();
 
-	lmpe.Set<PieceSpaceTransform>(CalcPieceSpaceTransform(pos, rot, piece->scale));
+	lmpe.Add<PieceSpaceTransform>(CalcPieceSpaceTransform(pos, rot, piece->scale));
+	lmpe.Add<CurrModelSpaceTransform, PrevModelSpaceTransform>();
+	lmpe.Add<HasAnimation>(); lmpe.Disable<HasAnimation>();
+	lmpe.Add<BlockScriptAnims>(); lmpe.Disable<BlockScriptAnims>();
 
 	children.reserve(piece->children.size());
 }
@@ -82,7 +91,7 @@ void LocalModelPiece::RemoveChild(LocalModelPiece* c)
 
 	auto& cLmpe = c->GetLocalModelPieceEntity();
 	auto& cRel = cLmpe.Get<ParentChildrenRelationship>();
-	cRel.parent = recs::NullEntity;
+	cRel.parent = Flecs::NullEntity;
 
 	auto& pRel = lmpe.Get<ParentChildrenRelationship>();
 	auto it = std::find(pRel.children.begin(), pRel.children.end(), cLmpe.EntityID());
@@ -183,10 +192,10 @@ void LocalModelPiece::SetBlockScriptAnims(bool b)
 	using namespace LMP;
 
 	if (b) {
-		lmpe.Add<BlockScriptAnims>();
+		lmpe.Enable<BlockScriptAnims>();
 	}
-	else if (lmpe.Has<BlockScriptAnims>()) {
-		lmpe.Remove<BlockScriptAnims>();
+	else {
+		lmpe.Disable<BlockScriptAnims>();
 	}
 }
 
@@ -194,7 +203,7 @@ bool LocalModelPiece::GetBlockScriptAnims() const
 {
 	using namespace LMP;
 
-	return lmpe.Has<BlockScriptAnims>();
+	return lmpe.Enabled<BlockScriptAnims>();
 }
 
 bool LocalModelPiece::GetWasUpdated() const
@@ -324,7 +333,7 @@ void LocalModelPiece::UpdateChildTransformRec(bool updateChildTransform) const
 			const ParentChildrenRelationship
 		>();
 
-		if (rhl.parent != recs::NullEntity) {
+		if (rhl.parent != Flecs::NullEntity) {
 			const LocalModelPieceEntityRef pLmpe(rhl.parent);
 			const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
 			modelSpaceTra = pModelSpaceTra * pieceSpaceTra;
@@ -363,7 +372,7 @@ void LocalModelPiece::UpdateParentMatricesRec() const
 
 	pieceSpaceTra = CalcPieceSpaceTransform(pos, rot, original->scale);
 
-	if (rel.parent != recs::NullEntity) {
+	if (rel.parent != Flecs::NullEntity) {
 		LocalModelPieceEntityRef pLmpe(rel.parent);
 		const auto& pModelSpaceTra = pLmpe.Get<CurrModelSpaceTransform>();
 		modelSpaceTra = pModelSpaceTra * pieceSpaceTra;

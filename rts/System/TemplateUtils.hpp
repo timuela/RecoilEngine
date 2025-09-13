@@ -72,6 +72,51 @@ namespace spring {
 	template<std::size_t Index, typename List>
 	using type_list_element_t = typename type_list_element<Index, List>::type;
 
+	template<typename... Lists>
+	struct type_list_concat;
+
+	template<>
+	struct type_list_concat<> {
+		using type = type_list_t<>;
+	};
+
+	template<typename... Ts>
+	struct type_list_concat<type_list_t<Ts...>> {
+		using type = type_list_t<Ts...>;
+	};
+
+	template<typename... Ts, typename... Us, typename... Rest>
+	struct type_list_concat<type_list_t<Ts...>, type_list_t<Us...>, Rest...> {
+		using type = typename type_list_concat<type_list_t<Ts..., Us...>, Rest...>::type;
+	};
+
+	template<typename... Lists>
+	using type_list_concat_t = typename type_list_concat<Lists...>::type;
+
+	template<template<class> class Pred, typename List>
+	struct type_list_filter;
+
+	template<template<class> class Pred, typename... Ts>
+	struct type_list_filter<Pred, type_list_t<Ts...>> {
+		using type = type_list_concat_t<
+			std::conditional_t<Pred<Ts>::value, type_list_t<Ts>, type_list_t<>>...
+		>;
+	};
+
+	template<template<class> class Pred, typename List>
+	using type_list_filter_t = typename type_list_filter<Pred, List>::type;
+
+	template<typename T, typename TypeList>
+	struct type_in_list;
+
+	template<typename T, typename... Types>
+	struct type_in_list<T, type_list_t<Types...>> {
+		static constexpr bool value = (std::is_same_v<T, Types> || ...);
+	};
+
+	template<typename T, typename TypeList>
+	constexpr bool type_in_list_v = type_in_list<T, TypeList>::value;
+
 	// https://blog.tartanllama.xyz/exploding-tuples-fold-expressions/
 	template <std::size_t... Idx>
 	auto make_index_dispatcher(std::index_sequence<Idx...>) {
@@ -269,6 +314,12 @@ namespace spring {
 		else {
 			(f(T{}), ...);
 		}
+	}
+
+	template<class T>
+	constexpr T& as_mutable(const T& t) noexcept
+	{
+		return const_cast<std::decay_t<T>&>(t);
 	}
 };
 

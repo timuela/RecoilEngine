@@ -6,7 +6,6 @@
 #include <compare>
 #include <concepts>
 #include <type_traits>
-#include <recs/recs.hpp>
 
 #include "System/Ecs/EcsMain.hpp"
 
@@ -64,74 +63,6 @@ struct Component : public BasicComponentType<T> { \
 #define ALIAS_COMPONENT(Component, T) \
 struct Component : public BasicComponentType<T> { \
     Component() = default; \
-    ~Component() = default; \
-    Component(const Component &) = default; \
-    Component& operator=(const Component &) = default; \
-    Component(Component &&) noexcept = default; \
-    Component& operator=(Component &&) noexcept = default; \
-    operator const T&() const { return value; } \
-    operator       T&()       { return value; } \
-    Component(const T& other) { value = other;  }  \
-    Component& operator=(const T& other) { value = other; return *this; } \
-    Component(T&& other) noexcept { value = std::move(other); } \
-    Component& operator=(T&& other) noexcept { value = std::move(other); return *this; } \
-}
-
-#define ALIAS_DENSE_COMPONENT(Component, T) \
-struct Component : public BasicComponentType<T> { \
-    static constexpr auto compCat = recs::ComponentCategory::Dense; \
-    Component() = default; \
-    ~Component() = default; \
-    Component(const Component &) = default; \
-    Component& operator=(const Component &) = default; \
-    Component(Component &&) noexcept = default; \
-    Component& operator=(Component &&) noexcept = default; \
-    operator const T&() const { return value; } \
-    operator       T&()       { return value; } \
-    Component(const T& other) { value = other;  }  \
-    Component& operator=(const T& other) { value = other; return *this; } \
-    Component(T&& other) noexcept { value = std::move(other); } \
-    Component& operator=(T&& other) noexcept { value = std::move(other); return *this; } \
-}
-
-#define ALIAS_DENSE_COMPONENT_DEF(Component, T, DefaultValue) \
-struct Component : public BasicComponentType<T> { \
-    static constexpr auto compCat = recs::ComponentCategory::Dense; \
-    Component() { value = T { DefaultValue }; } \
-    ~Component() = default; \
-    Component(const Component &) = default; \
-    Component& operator=(const Component &) = default; \
-    Component(Component &&) noexcept = default; \
-    Component& operator=(Component &&) noexcept = default; \
-    operator const T&() const { return value; } \
-    operator       T&()       { return value; } \
-    Component(const T& other) { value = other;  }  \
-    Component& operator=(const T& other) { value = other; return *this; } \
-    Component(T&& other) noexcept { value = std::move(other); } \
-    Component& operator=(T&& other) noexcept { value = std::move(other); return *this; } \
-}
-
-#define ALIAS_SPARSE_COMPONENT(Component, T) \
-struct Component : public BasicComponentType<T> { \
-    static constexpr auto compCat = recs::ComponentCategory::Sparse; \
-    Component() = default; \
-    ~Component() = default; \
-    Component(const Component &) = default; \
-    Component& operator=(const Component &) = default; \
-    Component(Component &&) noexcept = default; \
-    Component& operator=(Component &&) noexcept = default; \
-    operator const T&() const { return value; } \
-    operator       T&()       { return value; } \
-    Component(const T& other) { value = other;  }  \
-    Component& operator=(const T& other) { value = other; return *this; } \
-    Component(T&& other) noexcept { value = std::move(other); } \
-    Component& operator=(T&& other) noexcept { value = std::move(other); return *this; } \
-}
-
-#define ALIAS_SPARSE_COMPONENT_DEF(Component, T, DefaultValue) \
-struct Component : public BasicComponentType<T> { \
-    static constexpr auto compCat = recs::ComponentCategory::Sparse; \
-    Component() { value = T { DefaultValue }; } \
     ~Component() = default; \
     Component(const Component &) = default; \
     Component& operator=(const Component &) = default; \

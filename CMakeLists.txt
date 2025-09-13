@@ -597,7 +597,6 @@ add_custom_command(TARGET generateVersionFiles
 
 add_dependencies(generateSources generateVersionFiles)
 
-
 ### Where the other CMakeLists.txt are
 
 # As the libs are required by all the other sub-projects, we add them first
