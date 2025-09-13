@@ -1189,9 +1189,9 @@ void CLuaHandle::UnitConstructionDecayed(const CUnit* unit, float timeSinceLastB
  * @param unitID integer
  * @param unitDefID integer
  * @param unitTeam integer
- * @param attackerID integer
- * @param attackerDefID integer
- * @param attackerTeam number
+ * @param attackerID integer? Not available in LuaUI, when the player is not a spectator.
+ * @param attackerDefID integer? Not available in LuaUI, when the player is not a spectator.
+ * @param attackerTeam number? Not available in LuaUI, when the player is not a spectator.
  * @param weaponDefID integer
  */
 void CLuaHandle::UnitDestroyed(const CUnit* unit, const CUnit* attacker, int weaponDefID)
