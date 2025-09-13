@@ -177,7 +177,7 @@ namespace Impl{
 		float delta = math::fmod(dest - cur + math::THREEPI, math::TWOPI) - math::PI;
 
 		if (math::fabsf(delta) <= speed) {
-			cur = dest;
+			cur = ClampRad(dest);
 			return true;
 		}
 
@@ -227,7 +227,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
-
+		/*
 		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
@@ -294,6 +294,104 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
+		*/
+
+		LocalModelPieceEntity::ForEachGroupParallel<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoTurnX, AnimInfoTurnY, AnimInfoTurnZ>(); aiX || aiY || aiZ) {
+
+				auto [rot, noInterpolate] = entityRef.template Get<Rotation, RotationNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &rot, &df]<typename AnimInfoType>(AnimInfoType & ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::TurnToward(newValue, ai.dest, ai.speed / tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoSpinX, AnimInfoSpinY, AnimInfoSpinZ>(); aiX || aiY || aiZ) {
+
+				auto [rot, noInterpolate] = entityRef.template Get<Rotation, RotationNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &rot, &df]<typename AnimInfoType>(AnimInfoType & ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = rot.value[animAxis];
+					auto newValue = ClampRad(curValue);
+					ai.done |= Impl::DoSpin(newValue, ai.dest, ai.speed, ai.accel, tickRate);
+
+					if (curValue == newValue)
+						return;
+
+					rot.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoMoveX, AnimInfoMoveY, AnimInfoMoveZ>(); aiX || aiY || aiZ) {
+
+				auto [pos, noInterpolate] = entityRef.template Get<Position, PositionNoInterpolation>();
+
+				noInterpolate = false;
+
+				auto ExecAnim = [tickRate, &pos, &df]<typename AnimInfoType>(AnimInfoType & ai) {
+					constexpr auto animAxis = AnimInfoType::animAxis;
+
+					const auto curValue = pos.value[animAxis];
+					auto newValue = pos.value[animAxis];
+					ai.done |= Impl::MoveToward(newValue, ai.dest, ai.speed / tickRate);
+					pos.value[animAxis] = newValue;
+
+					if (curValue == newValue)
+						return;
+
+					pos.value[animAxis] = newValue;
+
+					// will do recursive propagation later
+					df = true;
+				};
+
+				if (aiX)
+					ExecAnim(*aiX);
+
+				if (aiY)
+					ExecAnim(*aiY);
+
+				if (aiZ)
+					ExecAnim(*aiZ);
+			}
+		});
 	}
 
 	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;

@@ -24,11 +24,11 @@ namespace ECS {
 	struct ExcludedComponentsListT : spring::type_list_t<T...> {};
 
 	template <typename... T>
-	static constexpr OwnedComponentsListT OwnedComponentsList{};
+	static constexpr OwnedComponentsListT<T...> OwnedComponentsList{};
 	template <typename... T>
-	static constexpr ObservedComponentsListT ObservedComponentsList{};
+	static constexpr ObservedComponentsListT<T...> ObservedComponentsList{};
 	template <typename... T>
-	static constexpr ExcludedComponentsListT ExcludedComponentsList{};
+	static constexpr ExcludedComponentsListT<T...> ExcludedComponentsList{};
 
 	template<typename... Ts>
 	concept MoreThanOneType = (sizeof...(Ts) > 1);
@@ -210,35 +210,19 @@ namespace ECS {
 		inline static void ForEachGroupParallel(Func&& func, EntityIncludeType<ObservedComponents...> obsv, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(obsv, excl);
 
-			// entities doesn't allow for random access, so we need to copy them to a vector first
-			entitiesVec.reserve(entities.size_hint());
-			for (auto entity : entities) {
-				entitiesVec.emplace_back(entity);
-			}
-
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
 				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents..., ObservedComponents...>));
 			}, ParallelMinChunk, ParallelMaxChunk);
-
-			entitiesVec.clear();
 		}
 		template<typename... OwnedComponents, typename... ExcludedComponents, typename Func>
 		inline static void ForEachGroupParallel(Func&& func, EntityExcludeType<ExcludedComponents...> excl = {}) {
 			auto entities = registry.group<OwnedComponents...>(excl);
 
-			// entities doesn't allow for random access, so we need to copy them to a vector first
-			entitiesVec.reserve(entities.size_hint());
-			for (auto entity : entities) {
-				entitiesVec.emplace_back(entity);
-			}
-
 			for_mt_chunk(0, entities.size(), [&entities, &func](int i) {
 				const auto entity = entities[i];
 				std::apply(func, make_arg_tuple(entities, entity, spring::type_list<OwnedComponents...>));
 			}, ParallelMinChunk, ParallelMaxChunk);
-
-			entitiesVec.clear();
 		}
 
 		inline static void SetParallelNumberOfChunks(int minChunks = ENTT_PACKED_PAGE, int maxChunks = std::numeric_limits<int>::max()) {
