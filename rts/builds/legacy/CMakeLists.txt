@@ -66,6 +66,7 @@ list(APPEND engineLibraries RmlUi::Core)
 list(APPEND engineLibraries RmlUi::Debugger)
 list(APPEND engineLibraries lunasvg)
 list(APPEND engineLibraries glad)
+list(APPEND engineLibraries flecs)
 
 ### Assemble external include dirs
 list(APPEND engineIncludes ${ENGINE_SRC_ROOT_DIR}/lib/asio/include)

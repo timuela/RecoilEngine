@@ -23,6 +23,7 @@ SET(GFLAGS_INSTALL_STATIC_LIBS        FALSE)
 
 ADD_SUBDIRECTORY(gflags)
 
+ADD_SUBDIRECTORY(flecs)
 
 # to change assimp for springs need, see fix_assimp.sh
 # sadly still manual changes are needed!
