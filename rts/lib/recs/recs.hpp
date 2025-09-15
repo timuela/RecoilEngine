@@ -1190,14 +1190,14 @@ namespace recs {
 		[[nodiscard]] decltype(auto) TryGet(Entity entity) const requires MoreThanOneType<Cts...> {
 			CheckEntity(entity);
 
-			return std::forward_as_tuple(GetStorage<Cts>().TryGet(entity)...);
+			return std::make_tuple(GetStorage<Cts>().TryGet(entity)...);
 		}
 
 		template<typename... Cts>
 		[[nodiscard]] decltype(auto) TryGet(Entity entity) requires MoreThanOneType<Cts...> {
 			CheckEntity(entity);
 
-			return std::forward_as_tuple(GetStorage<Cts>().TryGet(entity)...);
+			return std::make_tuple(GetStorage<Cts>().TryGet(entity)...);
 		}
 
 		template<typename... Cts>
@@ -1375,11 +1375,22 @@ namespace recs {
 					return regPtr->template Has<Td>(entity);
 				});
 			}
-			firstValidIndex = std::distance(includedEntities.begin(),
-				std::find(includedEntities.begin(), includedEntities.end(), true));
-			lastValidIndex = std::distance(includedEntities.begin(),
-				std::find(includedEntities.rbegin(), includedEntities.rend(), true).base()) - 1;
+
 			numValidIndices = std::ranges::count(includedEntities, true);
+
+			if (numValidIndices == 0) {
+				bSentinel = std::numeric_limits<size_t>::max();
+				eSentinel = 0;
+			}
+			else {
+				const auto firstIt = std::find(includedEntities.begin(), includedEntities.end(), true);
+				bSentinel = static_cast<size_t>(
+					std::distance(includedEntities.begin(), firstIt)) - 1;
+
+				const auto lastRit = std::find(includedEntities.rbegin(), includedEntities.rend(), true);
+				eSentinel = includedEntities.size() - static_cast<size_t>(
+					std::distance(includedEntities.rbegin(), lastRit));
+			}
 		}
 	public:
 		void DestroyEntity(Entity entity) {
@@ -1456,8 +1467,8 @@ namespace recs {
 	private:
 		TypedRegistry* regPtr = nullptr;
 		std::vector<bool> includedEntities;
-		size_t firstValidIndex = 0;                          // if none valid: == entities.size()
-		size_t lastValidIndex = std::numeric_limits<size_t>::max(); // if none valid: == max()
+		size_t bSentinel = std::numeric_limits<size_t>::max();
+		size_t eSentinel = 0;
 		size_t numValidIndices = 0;
 	public:
 		template<bool IsConst, bool IsReverse = false>
@@ -1472,33 +1483,31 @@ namespace recs {
 			using pointer = Ptr;
 			using reference = Ref;
 
-			Iterator(Reg* r, const std::vector<bool>* inc, size_t i)
-				: reg(r)
-				, included(inc)
+			Iterator(ViewImpl* vi_, size_t i)
+				: vi(vi_)
 				, idx(i)
 			{}
 
 			// enable const-iterator construction from non-const iterator
 			Iterator(const Iterator<false, IsReverse>& other)
-				: reg(other.reg)
-				, included(other.included)
+				: vi(other.vi)
 				, idx(other.idx)
 			{}
 
-			reference operator*() const { return reg->entities[idx]; }
-			pointer   operator->() const { return &reg->entities[idx]; }
+			reference operator* () const { return  vi->regPtr->entities[idx]; }
+			pointer   operator->() const { return &vi->regPtr->entities[idx]; }
 
 			Iterator& operator++() {
 				if constexpr (IsReverse) {
-					// front-to-back actually
-					++idx;
+					const auto L = (vi->eSentinel);
+					if (idx != L)
+						do { ++idx; } while (idx != L && !vi->includedEntities[idx]);
 				}
 				else {
-					// back-to-front actually
-					if (idx > 0) --idx;
-					else idx = std::numeric_limits<size_t>::max(); // before-begin sentinel
+					const auto L = (vi->bSentinel);
+					if (idx != L)
+						do { --idx; } while (idx != L && !vi->includedEntities[idx]);
 				}
-				advance_to_valid();
 				return *this;
 			}
 
@@ -1506,7 +1515,8 @@ namespace recs {
 
 			template<bool C, bool R>
 			bool operator==(const Iterator<C, R>& rhs) const {
-				return idx == rhs.idx && included == rhs.included && reg == rhs.reg;
+				assert(vi == rhs.vi);
+				return idx == rhs.idx;
 			}
 			template<bool C, bool R>
 			bool operator!=(const Iterator<C, R>& rhs) const {
@@ -1514,24 +1524,7 @@ namespace recs {
 			}
 
 		private:
-			void advance_to_valid() {
-				if constexpr (IsReverse) {
-					const size_t n = reg->entities.size();
-					while (idx < n && !(*included)[idx])
-						++idx;
-				}
-				else {
-					while (idx != std::numeric_limits<size_t>::max()
-						&& idx < reg->entities.size()
-						&& !(*included)[idx]) {
-						if (idx > 0) --idx;
-						else idx = std::numeric_limits<size_t>::max();
-					}
-				}
-			}
-
-			Reg* reg;
-			const std::vector<bool>* included;
+			ViewImpl* vi;
 			size_t idx;
 			template<bool, bool> friend class Iterator;
 		};
@@ -1543,46 +1536,42 @@ namespace recs {
 
 		// Regular iterators: back-to-front
 		iterator begin() {
-			// If no valid, lastValidIndex is max and equals end sentinel below
-			return iterator(regPtr, &includedEntities, lastValidIndex);
+			return iterator(this, eSentinel - 1);
 		}
 		iterator end() {
-			// "before the beginning" sentinel
-			return iterator(regPtr, &includedEntities, std::numeric_limits<size_t>::max());
+			return iterator(this, bSentinel);
 		}
 		const_iterator begin() const {
-			return const_iterator(regPtr, &includedEntities, lastValidIndex);
+			return const_iterator(this, eSentinel - 1);
 		}
 		const_iterator end() const {
-			return const_iterator(regPtr, &includedEntities, std::numeric_limits<size_t>::max());
+			return const_iterator(this, bSentinel);
 		}
 		const_iterator cbegin() const {
-			return const_iterator(regPtr, &includedEntities, lastValidIndex);
+			return const_iterator(this, eSentinel - 1);
 		}
 		const_iterator cend() const {
-			return const_iterator(regPtr, &includedEntities, std::numeric_limits<size_t>::max());
+			return const_iterator(this, bSentinel);
 		}
 
 		// Reverse iterators: front-to-back
 		reverse_iterator rbegin() {
-			// If none valid, firstValidIndex == entities.size() and equals rend sentinel below
-			return reverse_iterator(regPtr, &includedEntities, firstValidIndex);
+			return reverse_iterator(this, bSentinel + 1);
 		}
 		reverse_iterator rend() {
-			// "past the end" sentinel for forward index
-			return reverse_iterator(regPtr, &includedEntities, regPtr->entities.size());
+			return reverse_iterator(this, eSentinel);
 		}
 		const_reverse_iterator rbegin() const {
-			return const_reverse_iterator(regPtr, &includedEntities, firstValidIndex);
+			return const_reverse_iterator(this, bSentinel + 1);
 		}
 		const_reverse_iterator rend() const {
-			return const_reverse_iterator(regPtr, &includedEntities, regPtr->entities.size());
+			return const_reverse_iterator(this, eSentinel);
 		}
 		const_reverse_iterator crbegin() const {
-			return const_reverse_iterator(regPtr, &includedEntities, firstValidIndex);
+			return const_reverse_iterator(this, bSentinel + 1);
 		}
 		const_reverse_iterator crend() const {
-			return const_reverse_iterator(regPtr, &includedEntities, regPtr->entities.size());
+			return const_reverse_iterator(this, eSentinel);
 		}
 	};
 }

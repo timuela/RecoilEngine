@@ -224,6 +224,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	using namespace LMP;
 	using namespace ECS;
+	using namespace recs;
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
@@ -296,7 +297,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
 		*/
 
-		LocalModelPieceEntity::ForEachGroupParallel<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
+		LocalModelPieceEntity::ForEachViewParallel<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
 			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoTurnX, AnimInfoTurnY, AnimInfoTurnZ>(); aiX || aiY || aiZ) {
 
 				auto [rot, noInterpolate] = entityRef.template Get<Rotation, RotationNoInterpolation>();
@@ -391,7 +392,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				if (aiZ)
 					ExecAnim(*aiZ);
 			}
-		});
+		}, ExcludeComponentsList<BlockScriptAnims>);
 	}
 
 	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;
@@ -411,7 +412,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			auto& dr = allDirtyRoots[i];
 			const auto* rel = &dr.Get<const ParentChildrenRelationship>();
 
-			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
+			for (auto pLmpe = LocalModelPieceEntityRef(rel->parent); pLmpe.EntityID() != recs::NullEntity; pLmpe = LocalModelPieceEntityRef(rel->parent)) {
 				rel = &pLmpe.Get<const ParentChildrenRelationship>();
 
 				if (pLmpe.Get<DirtyFlag>()) {
@@ -472,7 +473,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 #endif
 					// update modelSpaceTransform from pieceSpaceTransform and parent's modelSpaceTransform
 					const auto pLmpe = LocalModelPieceEntityRef(rel.parent);
-					if unlikely(pLmpe.EntityID() == NullEntity) {
+					if unlikely(pLmpe.EntityID() == recs::NullEntity) {
 						modelSpaceTransform = pieceSpaceTransform;
 					}
 					else {
@@ -495,6 +496,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 	allDirtyRoots.clear();
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(ST-3)");
+
+		/*
 		// send AnimFinished calls and pop up done animations
 		const auto FinalizeAnimation = [this](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
@@ -529,6 +532,37 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				if (hasAnimation)
 					break;
 			}
+
+			if (!hasAnimation)
+				entityRef.template Remove<HasAnimation>();
+		});
+		*/
+
+		LocalModelPieceEntity::ForEachView<HasAnimation>([this](auto&& entityRef) {
+			bool hasAnimation = false;
+
+			spring::type_list_exec_all(AnimComponentList, [&hasAnimation, &entityRef, this](auto&& t) {
+				using AnimInfoType = std::decay_t<decltype(t)>;
+
+				static constexpr auto animAxis = AnimInfoType::animAxis;
+
+				auto* ai = entityRef.template TryGet<AnimInfoType>();
+
+				if (!ai)
+					return;
+
+				if (!ai->done) {
+					hasAnimation = true;
+					return;
+				}
+
+				if (ai->hasWaiting) {
+					auto* unitScript = std::as_const(allUnitScripts)[ai->scriptId];
+					unitScript->AnimFinished(static_cast<AnimType>(ai->animType), ai->piece, animAxis);
+				}
+
+				entityRef.template Remove<AnimInfoType>();
+			});
 
 			if (!hasAnimation)
 				entityRef.template Remove<HasAnimation>();

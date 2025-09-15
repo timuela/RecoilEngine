@@ -4,7 +4,7 @@
 #include <utility>
 #include <tuple>
 
-#include <recs/recs.hpp>
+#include "System/Ecs/RecsMain.hpp"
 #include "System/Threading/ThreadPool.h"
 
 namespace RECS {
@@ -61,7 +61,7 @@ namespace RECS {
 		}
 
 		template<typename T, typename... Args>
-		[[nodiscard]] inline decltype(auto) GetOrAdd(Args&&... args) {
+		inline decltype(auto) GetOrAdd(Args&&... args) {
 			return registry.template SafeSet<T>(entity, std::forward<Args>(args)...);
 		}
 
