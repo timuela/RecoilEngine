@@ -296,7 +296,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
 		*/
-
+		LocalModelPieceEntity::SetParallelNumberOfChunks(32);
 		LocalModelPieceEntity::ForEachViewParallel<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
 			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoTurnX, AnimInfoTurnY, AnimInfoTurnZ>(); aiX || aiY || aiZ) {
 

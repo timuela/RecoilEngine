@@ -662,11 +662,6 @@ namespace recs {
 			static_assert(always_false_v<T>, "Dense components can't be deleted with SafeDel()");
 		}
 
-		[[nodiscard]] bool Has(Entity entity) const noexcept {
-			static_assert(always_false_v<T>, "Dense components are always present. No need to check Has()");
-			return true;
-		}
-
 		template<typename... Args>
 		void Set(Entity entity, Args&&... args) noexcept {
 			const auto index = EntityToIndex(entity);
@@ -1097,22 +1092,24 @@ namespace recs {
 		template<typename C>
 		[[nodiscard]] bool Has(Entity entity) const {
 			CheckEntity(entity);
-			auto& storage = GetStorage<C>();
-			return storage.Has(entity);
+
+			return HasImpl<C>(EntityToIndex(entity));
 		}
 
 		template<typename... Cts>
 		[[nodiscard]] bool HasAll(Entity entity) const {
 			CheckEntity(entity);
 
-			return (true  && ... && GetStorage<Cts>().Has(entity));
+			auto i = EntityToIndex(entity);
+			return (true  && ... && HasImpl<Cts>(i));
 		}
 
 		template<typename... Cts>
 		[[nodiscard]] bool HasAny(Entity entity) const {
 			CheckEntity(entity);
 
-			return (false || ... || GetStorage<Cts>().Has(entity));
+			auto i = EntityToIndex(entity);
+			return (false || ... || HasImpl<Cts>(i));
 		}
 
 		template<typename C, typename... Args>
@@ -1232,6 +1229,18 @@ namespace recs {
 			return ViewImpl<Registry, ICs...>(*this, ExcludeComponentsList<ECs...>);
 		}
 	private:
+		template<typename T>
+		inline bool HasImpl(uint32_t index) const noexcept {
+			using Td = std::decay_t<T>;
+			if constexpr (ComponentTraits<Td>::compCat == ComponentCategory::Dense) {
+				return true;
+			}
+			else {
+				static constexpr size_t typeIdx = GetStorageIdx<Td>();
+				return sparseMembership[index].test(typeIdx);
+			}
+		}
+
 		template<typename T>
 		inline decltype(auto) ForwardNonEmpty(Entity e) const noexcept {
 			if constexpr (std::is_empty_v<T>) {
