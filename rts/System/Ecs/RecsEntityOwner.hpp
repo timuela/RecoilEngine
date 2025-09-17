@@ -120,6 +120,14 @@ namespace RECS {
 			}
 		}
 
+		template<typename... Components, typename... ExcludedComponents, typename OByT, typename Func>
+		inline static void ForEachView(Func&& func, OrderByT<OByT> obtl, ExcludeComponentsListT<ExcludedComponents...> excl = {}) {
+			auto entities = registry.template View<Components...>(obtl, excl);
+			for (auto entity : entities) {
+				std::apply(func, make_arg_tuple(entities, entity, type_list<Components...>));
+			}
+		}
+
 		template<typename... Components, typename... ExcludedComponents, typename Func>
 		[[nodiscard]] inline static auto ForEachViewAsync(Func&& func, ExcludeComponentsListT<ExcludedComponents...> excl = {}) {
 			// copy excl and func on purpose
@@ -131,22 +139,33 @@ namespace RECS {
 			});
 		}
 
+		template<typename... Components, typename... ExcludedComponents, typename OByT, typename Func>
+		[[nodiscard]] inline static auto ForEachViewAsync(Func&& func, OrderByT<OByT> obtl, ExcludeComponentsListT<ExcludedComponents...> excl = {}) {
+			// copy excl and func on purpose
+			return ThreadPool::Enqueue([excl, obtl, func]() {
+				auto entities = registry.template View<Components...>(obtl, excl);
+				for (auto entity : entities) {
+					std::apply(func, make_arg_tuple(entities, entity, type_list<Components...>));
+				}
+			});
+		}
+
+		template<typename... Components, typename... ExcludedComponents, typename OByT, typename Func>
+		inline static void ForEachViewParallel(Func&& func, OrderByT<OByT> obtl, ExcludeComponentsListT<ExcludedComponents...> excl = {}) {
+			auto entities = registry.template View<Components...>(obtl, excl);
+
+			for_mt_chunk(0, entities.Size(), [&entities, &func](int i) {
+				std::apply(func, make_arg_tuple(entities, std::as_const(entities)[i], type_list<Components...>));
+			}, ParallelMinChunk, ParallelMaxChunk);
+		}
+
 		template<typename... Components, typename... ExcludedComponents, typename Func>
 		inline static void ForEachViewParallel(Func&& func, ExcludeComponentsListT<ExcludedComponents...> excl = {}) {
 			auto entities = registry.template View<Components...>(excl);
 
-			// entities doesn't allow for random access, so we need to copy them to a vector first
-			entitiesVec.reserve(entities.Size());
-			for (auto entity : entities) {
-				entitiesVec.emplace_back(entity);
-			}
-
-			for_mt_chunk(0, entitiesVec.size(), [&entities, &func](int i) {
-				const auto entity = entitiesVec[i];
-				std::apply(func, make_arg_tuple(entities, entity, type_list<Components...>));
+			for_mt_chunk(0, entities.Size(), [&entities, &func](int i) {
+				std::apply(func, make_arg_tuple(entities, std::as_const(entities)[i], type_list<Components...>));
 			}, ParallelMinChunk, ParallelMaxChunk);
-
-			entitiesVec.clear();
 		}
 
 		inline static void SetParallelNumberOfChunks(int minChunks = ENTT_PACKED_PAGE, int maxChunks = std::numeric_limits<int>::max()) {
@@ -156,7 +175,6 @@ namespace RECS {
 
 		inline static void Cleanup() {
 			registry = {};
-			entitiesVec = {};
 		}
 	private:
 		template<typename... Ts, typename V>
@@ -169,7 +187,6 @@ namespace RECS {
 	protected:
 		Entity entity{};
 		static inline Registry<Cs...> registry{};
-		static inline std::vector<Entity> entitiesVec{};
 		static inline int ParallelMinChunk = DEFAULT_DENSE_CHUNK_SIZE;
 		static inline int ParallelMaxChunk = std::numeric_limits<int>::max();
 	};

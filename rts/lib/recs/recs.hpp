@@ -16,6 +16,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <compare>
+#include <iterator>
+#include <ranges>
 
 #if __cplusplus >= 202002L
 #define recs_likely(x)   (x) [[likely]]
@@ -54,6 +56,9 @@ namespace recs {
 	// fwd declaration
 	template <class T, size_t CHUNK_SIZE>
 	class ChunkedArray;
+
+	template<typename TypedRegistry, typename... ICs>
+	class ViewImpl;
 }
 
 namespace utils {
@@ -97,6 +102,25 @@ namespace utils {
 			[&fn]<typename ...T>(T&& ...args) {
 			(fn(std::forward<T>(args)), ...);
 		}, std::forward<TupleT>(tp));
+	}
+
+	template<typename Tuple, typename Func, std::size_t... Is>
+	inline void tuple_exec_at_impl(size_t index, Tuple& t, Func&& f, std::index_sequence<Is...>)
+	{
+		using FnType = void(*)(Tuple&, Func&&);
+		static constexpr FnType table[] = {
+			[](Tuple& t, Func&& func) { func(std::get<Is>(t)); }...
+		};
+		if (index < sizeof...(Is))
+			table[index](t, std::forward<Func>(f));
+		else
+			throw std::out_of_range("tuple index out of range");
+	}
+
+	template<typename Tuple, typename Func>
+	inline void tuple_exec_at(size_t index, Tuple& t, Func&& f)
+	{
+		tuple_exec_at_impl(index, t, std::forward<Func>(f), std::make_index_sequence<std::tuple_size_v<Tuple>>{});
 	}
 
 	template<typename... Type>
@@ -152,6 +176,26 @@ namespace utils {
 
 	template<template<class> class Pred, typename List>
 	using type_list_filter_t = typename type_list_filter<Pred, List>::type;
+
+	template<std::size_t I, typename List, std::size_t N = List::size>
+	struct type_list_at;
+
+	// recursive step
+	template<std::size_t I, typename T, typename... Ts, std::size_t N>
+	struct type_list_at<I, type_list_t<T, Ts...>, N> : type_list_at<I - 1, type_list_t<Ts...>, N> {};
+
+	// base case
+	template<typename T, typename... Ts, std::size_t N>
+	struct type_list_at<0, type_list_t<T, Ts...>, N> { using type = T; };
+
+	// out-of-range: empty list reached while I > 0
+	template<std::size_t I, std::size_t N>
+	struct type_list_at<I, type_list_t<>, N> {
+		static_assert(I < N, "type_list_at: index out of range");
+	};
+
+	template<std::size_t I, typename List>
+	using type_list_at_t = typename type_list_at<I, List>::type;
 
 	template<typename T, typename... Args>
 	inline T& construct_and_assign_at_ref(T& place, Args&& ... args) noexcept {
@@ -349,8 +393,14 @@ namespace recs {
 	template <typename... T>
 	struct ExcludeComponentsListT : type_list_t<T...> {};
 
+	template <typename T>
+	struct OrderByT : type_list_t<T> {};
+
 	template <typename... T>
 	static constexpr ExcludeComponentsListT<T...> ExcludeComponentsList{};
+
+	template <typename T>
+	static constexpr OrderByT<T> OrderBy{};
 
 	//TODO switch back to methods?
 	struct Entity {
@@ -617,6 +667,9 @@ namespace recs {
 		template <typename... Cs>
 		friend class Registry;
 
+		template<typename TR, typename... ICs>
+		friend class ViewImpl;
+
 		using MyStoredType = T;
 	public:
 		DenseComponentStorage(TypedRegistry& r)
@@ -697,6 +750,10 @@ namespace recs {
 		void Clear() noexcept {
 			storage.clear();
 		}
+
+		auto Size() const noexcept {
+			return storage.size();
+		}
 	private:
 		ComponentTraits<MyStoredType>::StorageType storage;
 		TypedRegistry* regPtr;
@@ -707,6 +764,9 @@ namespace recs {
 	public:
 		template <typename... Cs>
 		friend class Registry;
+
+		template<typename TR, typename... ICs>
+		friend class ViewImpl;
 
 		using MyStoredType = T;
 	public:
@@ -927,6 +987,10 @@ namespace recs {
 			mappedEntites.clear();
 			// regPtr->sparseMembership will be cleaned by Registry
 		}
+
+		auto Size() const noexcept {
+			return storage.size();
+		}
 	private:
 		ComponentTraits<MyStoredType>::StorageType storage;
 		ChunkedArray<Entity, ComponentTraits<MyStoredType>::chunkSize> mappedEntites;
@@ -961,9 +1025,6 @@ namespace recs {
 		return std::tuple_cat(MakeStorageTypeTuple<compCat, TypedRegistry, Cs>(reg)...);
 	}
 
-	template<typename TypedRegistry, typename... ICs>
-	class ViewImpl;
-
 	template <typename... Cs>
 	class Registry {
 	public:
@@ -974,6 +1035,9 @@ namespace recs {
 
 		template <typename R, typename T>
 		friend class SparseComponentStorage;
+
+		template<typename TR, typename... ICs>
+		friend class ViewImpl;
 	public:
 		Registry()
 			: entities{}
@@ -1225,8 +1289,12 @@ namespace recs {
 		}
 
 		template<typename... ICs, typename... ECs>
-		auto View(ExcludeComponentsListT<ECs...> = {}) noexcept {
-			return ViewImpl<Registry, ICs...>(*this, ExcludeComponentsList<ECs...>);
+		auto View(ExcludeComponentsListT<ECs...> excl = {}) noexcept {
+			return ViewImpl<Registry, ICs...>(*this, excl);
+		}
+		template<typename... ICs, typename... ECs, typename OByT>
+		auto View(OrderByT<OByT> obtl, ExcludeComponentsListT<ECs...> excl = {}) noexcept {
+			return ViewImpl<Registry, ICs...>(*this, obtl, excl);
 		}
 	private:
 		template<typename T>
@@ -1335,11 +1403,18 @@ namespace recs {
 		std::array<SparseMapType<Registry>, NUM_SPARSE_COMPONENTS> sparseMaps; // entity to dense pos
 	};
 
-	template<class C>
+	template<typename C>
 	using IsDenseComponent = std::bool_constant<ComponentTraits<C>::compCat == ComponentCategory::Dense>;
 
-	template<class C>
+	template<typename C>
 	using IsSparseComponent = std::bool_constant<ComponentTraits<C>::compCat == ComponentCategory::Sparse>;
+
+	template<typename Target>
+	struct not_same_as {
+		template<class X>
+		using pred = std::bool_constant<!std::is_same_v<std::decay_t<X>, std::decay_t<Target>>>;
+	};
+
 
 	template<typename TypedRegistry, typename... ICs>
 	class ViewImpl {
@@ -1351,6 +1426,28 @@ namespace recs {
 		ViewImpl(TypedRegistry& r, ExcludeComponentsListT<ECs...> = {})
 			: regPtr(&r)
 		{
+			InitCheck(ExcludeComponentsList<ECs...>);
+			InitOrderByEntity(ExcludeComponentsList<ECs...>);
+		}
+		template<typename OByT, typename... ECs>
+		ViewImpl(TypedRegistry& r, OrderByT<OByT>, ExcludeComponentsListT<ECs...>)
+			: regPtr(&r)
+		{
+			InitCheck(ExcludeComponentsList<ECs...>);
+
+			using SparseICs = type_list_filter_t<IsSparseComponent, type_list_t<ICs...>>;
+
+			using OByTd = std::decay_t<OByT>;
+			if constexpr (type_in_list_v<OByTd, SparseICs>) {
+				InitOrderByType(ExcludeComponentsList<ECs...>, OrderBy<OByT>);
+			}
+			else {
+				InitOrderByEntity(ExcludeComponentsList<ECs...>);
+			}
+		}
+	private:
+		template<typename... ECs>
+		void InitCheck(ExcludeComponentsListT<ECs...> = {}) {
 			constexpr bool ValidECTL = (true && ... && type_in_list_v<std::decay_t<ECs>, typename TypedRegistry::TypesList>);
 			constexpr bool ValidICTL = (true && ... && type_in_list_v<std::decay_t<ICs>, typename TypedRegistry::TypesList>);
 			static_assert(ValidECTL, "Exclude components list contains type not present in the associated registry");
@@ -1363,18 +1460,24 @@ namespace recs {
 
 			using DenseECs = type_list_filter_t<IsDenseComponent, type_list_t<ECs...>>;
 			static_assert(!ValidECTL || DenseECs::size == 0, "Exclude components list can't contain Dense components");
+		}
+
+		template<typename... ECs>
+		void InitOrderByEntity(ExcludeComponentsListT<ECs...> = {}) {
 			using SparseECs = type_list_t<ECs...>;
 			using SparseICs = type_list_filter_t<IsSparseComponent, type_list_t<ICs...>>;
+
 			constexpr static auto TypeListFunctorOr = []<typename F, typename... Ts>(type_list_t<Ts...>&&, F && f) {
 				return (false || ... || f(type_list<Ts>));
 			};
 			constexpr static auto TypeListFunctorAnd = []<typename F, typename... Ts>(type_list_t<Ts...>&&, F && f) {
 				return (true  && ... && f(type_list<Ts>));
 			};
-			includedEntities.resize(regPtr->entities.size(), false);
-			for (size_t i = 0; i < regPtr->entities.size(); ++i) {
-				const auto entity = regPtr->entities[i];
-				includedEntities[i] = regPtr->IsValidEntity(entity) &&
+
+			entities.reserve(regPtr->entities.size()); //overkill, but one allocation only
+
+			for (auto entity : regPtr->entities) {
+				bool include = regPtr->IsValidEntity(entity) &&
 					TypeListFunctorAnd(SparseICs{}, [this, entity]<typename T>(type_list_t<T>) {
 					using Td = std::decay_t<T>;
 					return regPtr->template Has<Td>(entity);
@@ -1383,54 +1486,61 @@ namespace recs {
 					using Td = std::decay_t<T>;
 					return regPtr->template Has<Td>(entity);
 				});
-			}
 
-			numValidIndices = std::ranges::count(includedEntities, true);
+				if (include)
+					entities.emplace_back(entity);
+			}			
+		}
+		template<typename OByT, typename... ECs>
+		void InitOrderByType(ExcludeComponentsListT<ECs...>, OrderByT<OByT>) {
+			static_assert(type_in_list_v<std::decay_t<OByT>, typename TypedRegistry::TypesList>, "OrderBy component is not present in the associated registry");
 
-			if (numValidIndices == 0) {
-				bSentinel = std::numeric_limits<size_t>::max();
-				eSentinel = 0;
+			using SparseECs = type_list_t<ECs...>;
+			using SparseICs = type_list_filter_t<IsSparseComponent, type_list_t<ICs...>>;
+
+			if constexpr (SparseICs::size == 0) {
+				InitOrderByEntity(ExcludeComponentsList<ECs...>);
 			}
 			else {
-				const auto firstIt = std::find(includedEntities.begin(), includedEntities.end(), true);
-				bSentinel = static_cast<size_t>(
-					std::distance(includedEntities.begin(), firstIt)) - 1;
+				using OByTd = std::decay_t<OByT>;
+				const auto& oByTStorage = regPtr->template GetStorage<OByTd>();
 
-				const auto lastRit = std::find(includedEntities.rbegin(), includedEntities.rend(), true);
-				eSentinel = includedEntities.size() - static_cast<size_t>(
-					std::distance(includedEntities.rbegin(), lastRit));
+				using RestOfSparseICs = type_list_filter_t<not_same_as<OByTd>::template pred, SparseICs>;
+
+				constexpr static auto TypeListFunctorOr = []<typename F, typename... Ts>(type_list_t<Ts...>&&, F && f) {
+					return (false || ... || f(type_list<Ts>));
+				};
+				constexpr static auto TypeListFunctorAnd = []<typename F, typename... Ts>(type_list_t<Ts...>&&, F && f) {
+					return (true  && ... && f(type_list<Ts>));
+				};
+
+				entities.reserve(oByTStorage.Size());
+				if constexpr (RestOfSparseICs::size == 0) {
+					for (auto entity : oByTStorage.mappedEntites)
+						entities.emplace_back(entity);
+				}
+				else {
+					for (auto entity : oByTStorage.mappedEntites) {
+						bool include = /*regPtr->IsValidEntity(entity) &&*/
+							TypeListFunctorAnd(RestOfSparseICs{}, [this, entity]<typename T>(type_list_t<T>) {
+							using Td = std::decay_t<T>;
+							return regPtr->template Has<Td>(entity);
+						}) &&
+							!TypeListFunctorOr(SparseECs{}, [this, entity]<typename T>(type_list_t<T>) {
+							using Td = std::decay_t<T>;
+							return regPtr->template Has<Td>(entity);
+						});
+
+						if (include)
+							entities.emplace_back(entity);
+					}
+				}
 			}
 		}
 	public:
-		void DestroyEntity(Entity entity) {
-			regPtr->DestroyEntity(entity);
-		}
-		bool Contains(Entity entity) const noexcept {
-			if (!regPtr->IsValidEntity(entity))
-				return false;
-
-			const auto i = EntityToIndex(entity);
-			return includedEntities[i];
-		}
-		template<typename C, typename... Args>
-		decltype(auto) Add(Entity entity, Args&&... args) {
-			return regPtr->template Add<C>(entity, std::forward<Args>(args)...);
-		}
-		template<typename C>
-		void Del(Entity entity) {
-			regPtr->template Del<C>(entity);
-		}
-		template<typename C>
-		void SafeDel(Entity entity) {
-			regPtr->template SafeDel<C>(entity);
-		}
 		template<typename C, typename... Args>
 		void Set(Entity entity, Args&&... args) {
 			regPtr->template Set<C>(entity, std::forward<Args>(args)...);
-		}
-		template<typename C, typename... Args>
-		decltype(auto) SafeSet(Entity entity, Args&&... args) {
-			return regPtr->template SafeSet<C>(entity, std::forward<Args>(args)...);
 		}
 		template<typename C>
 		[[nodiscard]] decltype(auto) Get(Entity entity) const {
@@ -1456,131 +1566,53 @@ namespace recs {
 		[[nodiscard]] decltype(auto) GetNonEmpty(Entity entity) {
 			return regPtr->template GetNonEmpty<Cts...>(entity);
 		}
-		template<typename C>
-		[[nodiscard]] decltype(auto) TryGet(Entity entity) const {
-			return as_const_ptr(regPtr)->template TryGet<C>(entity);
+		auto Size() const { return entities.size(); }
+
+		decltype(auto) operator[](size_t i) const {
+			return entities[i];
 		}
-		template<typename C>
-		[[nodiscard]] decltype(auto) TryGet(Entity entity) {
-			return regPtr->template TryGet<C>(entity);
-		}
-		template<typename... Cts>
-		[[nodiscard]] decltype(auto) TryGet(Entity entity) const requires MoreThanOneType<Cts...> {
-			return as_const_ptr(regPtr)->template TryGet<Cts...>(entity);
-		}
-		template<typename... Cts>
-		[[nodiscard]] decltype(auto) TryGet(Entity entity) requires MoreThanOneType<Cts...> {
-			return regPtr->template TryGet<Cts...>(entity);
-		}
-		auto Size() const { return numValidIndices; }
 	private:
 		TypedRegistry* regPtr = nullptr;
-		std::vector<bool> includedEntities;
-		size_t bSentinel = std::numeric_limits<size_t>::max();
-		size_t eSentinel = 0;
-		size_t numValidIndices = 0;
+		std::vector<Entity> entities;
 	public:
-		template<bool IsConst, bool IsReverse = false>
-		class Iterator {
-			using Reg = std::conditional_t<IsConst, const TypedRegistry, TypedRegistry>;
-			using Ref = std::conditional_t<IsConst, const Entity&, Entity&>;
-			using Ptr = std::conditional_t<IsConst, const Entity*, Entity*>;
-		public:
-			using iterator_category = std::forward_iterator_tag;
-			using value_type = Entity;
-			using difference_type = std::ptrdiff_t;
-			using pointer = Ptr;
-			using reference = Ref;
-
-			Iterator(ViewImpl* vi_, size_t i)
-				: vi(vi_)
-				, idx(i)
-			{}
-
-			// enable const-iterator construction from non-const iterator
-			Iterator(const Iterator<false, IsReverse>& other)
-				: vi(other.vi)
-				, idx(other.idx)
-			{}
-
-			reference operator* () const { return  vi->regPtr->entities[idx]; }
-			pointer   operator->() const { return &vi->regPtr->entities[idx]; }
-
-			Iterator& operator++() {
-				if constexpr (IsReverse) {
-					const auto L = (vi->eSentinel);
-					if (idx != L)
-						do { ++idx; } while (idx != L && !vi->includedEntities[idx]);
-				}
-				else {
-					const auto L = (vi->bSentinel);
-					if (idx != L)
-						do { --idx; } while (idx != L && !vi->includedEntities[idx]);
-				}
-				return *this;
-			}
-
-			Iterator  operator++(int) { Iterator tmp = *this; ++(*this); return tmp; }
-
-			template<bool C, bool R>
-			bool operator==(const Iterator<C, R>& rhs) const {
-				assert(vi == rhs.vi);
-				return idx == rhs.idx;
-			}
-			template<bool C, bool R>
-			bool operator!=(const Iterator<C, R>& rhs) const {
-				return !(*this == rhs);
-			}
-
-		private:
-			ViewImpl* vi;
-			size_t idx;
-			template<bool, bool> friend class Iterator;
-		};
-
-		using iterator = Iterator<false, false>;
-		using const_iterator = Iterator<true, false>;
-		using reverse_iterator = Iterator<false, true>;
-		using const_reverse_iterator = Iterator<true, true>;
-
 		// Regular iterators: back-to-front
-		iterator begin() {
-			return iterator(this, eSentinel - 1);
+		auto begin() {
+			return std::rbegin(entities);
 		}
-		iterator end() {
-			return iterator(this, bSentinel);
+		auto end() {
+			return std::rend(entities);
 		}
-		const_iterator begin() const {
-			return const_iterator(this, eSentinel - 1);
+		auto begin() const {
+			return std::rbegin(entities);
 		}
-		const_iterator end() const {
-			return const_iterator(this, bSentinel);
+		auto end() const {
+			return std::rend(entities);
 		}
-		const_iterator cbegin() const {
-			return const_iterator(this, eSentinel - 1);
+		auto cbegin() const {
+			return std::rbegin(entities);
 		}
-		const_iterator cend() const {
-			return const_iterator(this, bSentinel);
+		auto cend() const {
+			return std::rend(entities);
 		}
 
 		// Reverse iterators: front-to-back
-		reverse_iterator rbegin() {
-			return reverse_iterator(this, bSentinel + 1);
+		auto rbegin() {
+			return std::begin(entities);
 		}
-		reverse_iterator rend() {
-			return reverse_iterator(this, eSentinel);
+		auto rend() {
+			return std::end(entities);
 		}
-		const_reverse_iterator rbegin() const {
-			return const_reverse_iterator(this, bSentinel + 1);
+		auto rbegin() const {
+			return std::begin(entities);
 		}
-		const_reverse_iterator rend() const {
-			return const_reverse_iterator(this, eSentinel);
+		auto rend() const {
+			return std::end(entities);
 		}
-		const_reverse_iterator crbegin() const {
-			return const_reverse_iterator(this, bSentinel + 1);
+		auto crbegin() const {
+			return std::begin(entities);
 		}
-		const_reverse_iterator crend() const {
-			return const_reverse_iterator(this, eSentinel);
+		auto crend() const {
+			return std::end(entities);
 		}
 	};
 }
