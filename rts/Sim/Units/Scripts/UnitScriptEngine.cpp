@@ -392,7 +392,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 				if (aiZ)
 					ExecAnim(*aiZ);
 			}
-		}, ExcludeComponentsList<BlockScriptAnims>);
+		}, OrderBy<HasAnimation>, ExcludeComponentsList<BlockScriptAnims>);
 	}
 
 	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;
