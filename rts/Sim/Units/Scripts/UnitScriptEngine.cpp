@@ -228,7 +228,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 	{
 		ZoneScopedN("CUnitScriptEngine::Tick(MT-0)");
-		/*
+
+		// much worse perf
+#if 0
+		LocalModelPieceEntity::SetParallelNumberOfChunks(1);
 		const auto ExecuteAnimation = [tickRate](auto&& t) {
 			using AnimInfoType = std::decay_t<decltype(t)>;
 
@@ -236,9 +239,8 @@ void CUnitScriptEngine::Tick(int deltaTime)
 			static constexpr auto animAxis = AnimInfoType::animAxis;
 
 			static constexpr auto AnimComponentListIndex = animType * AnimAxisCount + animAxis;
-			LocalModelPieceEntity::SetParallelNumberOfChunks(128); // tune this
 			if constexpr (animType == ATurn) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, DirtyFlag>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -252,10 +254,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == ASpin) {
-				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachViewParallel<Rotation, RotationNoInterpolation, AnimInfoType, DirtyFlag>([tickRate](auto&& entityRef, auto&& rot, auto&& noInterpolate, auto&& ai, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = rot.value[animAxis];
@@ -269,10 +271,10 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else if constexpr (animType == AMove) {
-				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, UpdateFlags, DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& uf, auto&& df) {
+				LocalModelPieceEntity::ForEachViewParallel<Position, PositionNoInterpolation, AnimInfoType, DirtyFlag>([tickRate](auto&& entityRef, auto&& pos, auto&& noInterpolate, auto&& ai, auto&& df) {
 					noInterpolate = false;
 
 					const auto curValue = pos.value[animAxis];
@@ -287,7 +289,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 
 					// will do recursive propagation later
 					df = true;
-				}, EntityExclude<BlockScriptAnims>);
+				}, ExcludeComponentsList<BlockScriptAnims>);
 			}
 			else {
 				static_assert(Recoil::always_false_v<AnimInfoType>, "Unknown animation type");
@@ -295,7 +297,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 		};
 
 		spring::type_list_exec_all(AnimComponentList, ExecuteAnimation);
-		*/
+#else
 		LocalModelPieceEntity::SetParallelNumberOfChunks(32);
 		LocalModelPieceEntity::ForEachViewParallel<DirtyFlag, HasAnimation>([tickRate](auto&& entityRef, auto&& df) {
 			if (auto [aiX, aiY, aiZ] = entityRef.template TryGet<AnimInfoTurnX, AnimInfoTurnY, AnimInfoTurnZ>(); aiX || aiY || aiZ) {
@@ -393,6 +395,7 @@ void CUnitScriptEngine::Tick(int deltaTime)
 					ExecAnim(*aiZ);
 			}
 		}, OrderBy<HasAnimation>, ExcludeComponentsList<BlockScriptAnims>);
+#endif
 	}
 
 	static std::vector<LocalModelPieceEntityRef> allDirtyRoots;
