@@ -843,6 +843,7 @@ void UnitDef::CreateYardMap(std::string&& yardMapStr)
 			case 'b': { defYardMap[ymCopyIdx - 1] = YARDMAP_BUILDONLY;                    } break;
 			case 'u': { defYardMap[ymCopyIdx - 1] = YARDMAP_UNBUILDABLE;                  } break;
 			case 'e': { defYardMap[ymCopyIdx - 1] = YARDMAP_EXITONLY;                     } break;
+			case 'p': { defYardMap[ymCopyIdx - 1] = YARDMAP_PATHSTACK;                    } break;
 			case 'w':
 			case 'x':
 			case 'f':
